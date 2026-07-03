@@ -870,7 +870,7 @@ final class TokenDetailsPanel: NSView {
     }
 
     override var intrinsicContentSize: NSSize {
-        NSSize(width: 340, height: 282)
+        NSSize(width: 340, height: 230)
     }
 
     override init(frame frameRect: NSRect) {
@@ -914,20 +914,11 @@ final class TokenDetailsPanel: NSView {
         )
 
         drawProgressRow(
-            title: "Context remaining",
-            percent: token.remainingContextPercent,
-            detail: contextDetail(token),
-            x: 18,
-            y: 86,
-            width: 304,
-            color: color(for: token.remainingContextPercent)
-        )
-        drawProgressRow(
             title: "5h quota remaining",
             percent: token.primaryLimit?.remainingPercent,
             detail: resetDetail(token.primaryLimit),
             x: 18,
-            y: 139,
+            y: 86,
             width: 304,
             color: color(for: token.primaryLimit?.remainingPercent)
         )
@@ -936,7 +927,7 @@ final class TokenDetailsPanel: NSView {
             percent: token.secondaryLimit?.remainingPercent,
             detail: resetDetail(token.secondaryLimit),
             x: 18,
-            y: 192,
+            y: 139,
             width: 304,
             color: color(for: token.secondaryLimit?.remainingPercent)
         )
@@ -944,7 +935,7 @@ final class TokenDetailsPanel: NSView {
         drawText(
             "Ctx \(formatCompact(token.currentTotalTokens ?? 0))  Today \(formatCompact(token.observedTodayTokens))  Week \(formatCompact(token.observedWeekTokens))",
             x: 18,
-            y: 241,
+            y: 188,
             size: 10,
             color: NSColor(calibratedWhite: 0.20, alpha: 1)
         )
@@ -1002,16 +993,6 @@ final class TokenDetailsPanel: NSView {
         rect(x, y, width, 18, NSColor(calibratedWhite: 0.08, alpha: 1))
         rect(x + 2, y + 2, width - 4, 14, color)
         drawText(text, x: x + 9, y: y + 3, size: 9, weight: .bold, color: NSColor(calibratedWhite: 0.08, alpha: 1))
-    }
-
-    private func contextDetail(_ token: TokenUsageSnapshot) -> String {
-        guard let remaining = token.remainingContextTokens,
-              let window = token.contextWindow
-        else {
-            return "Local token_count event not observed yet"
-        }
-
-        return "\(formatCompact(remaining)) left of \(formatCompact(window)) context window"
     }
 
     private func resetDetail(_ bucket: TokenBucketSnapshot?) -> String {
@@ -1089,7 +1070,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var lastSnapshot: StatusSnapshot?
     private var lastStatusPoll = Date.distantPast
     private var isProbeRunning = false
-    private let detailsPanel = TokenDetailsPanel(frame: NSRect(x: 0, y: 0, width: 340, height: 282))
+    private let detailsPanel = TokenDetailsPanel(frame: NSRect(x: 0, y: 0, width: 340, height: 230))
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)

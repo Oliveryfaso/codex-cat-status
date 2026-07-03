@@ -37,7 +37,7 @@ The indicator next to the cat is the estimated remaining context window for the 
 
 - Menu bar: pixel-art vertical battery next to the cat, without extra status text.
 - Tooltip: current context tokens, locally observed uncached today/week token totals, and 5-hour/7-day quota windows with battery-style percentage bars when Codex reports them.
-- Menu: a custom pixel-style detail panel with status signals, context estimate, quota bars, and observed token totals.
+- Menu: a custom pixel-style detail panel with status signals, quota bars, and observed token totals.
 
 This is local telemetry from `~/.codex/sessions`, not an official billing or quota API. Today/week totals are best-effort sums of the latest token event per observed turn, excluding cached input tokens when Codex reports them. Values can differ from Codex's own UI because Codex may display thread-specific live context, account-level limits, or server-side usage state that is not fully exposed in local session logs.
 
