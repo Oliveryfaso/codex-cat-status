@@ -1081,12 +1081,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let statusPollInterval: TimeInterval = 0.5
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let probe = CodexStatusProbe()
+    private let probeQueue = DispatchQueue(label: "CodexCatStatus.probe", qos: .utility)
     private let icon = PixelStatusBadge()
     private var timer: Timer?
     private var frame = 0
     private var pollCount = 0
     private var lastSnapshot: StatusSnapshot?
     private var lastStatusPoll = Date.distantPast
+    private var isProbeRunning = false
     private let detailsPanel = TokenDetailsPanel(frame: NSRect(x: 0, y: 0, width: 340, height: 282))
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -1122,22 +1124,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func menuWillOpen(_ menu: NSMenu) {
-        lastStatusPoll = .distantPast
-        updateStatus()
+        if let lastSnapshot {
+            detailsPanel.snapshot = lastSnapshot
+        }
+        requestStatusPoll(force: true)
     }
 
     private func updateStatus() {
         let now = Date()
-        var didPoll = false
         if lastSnapshot == nil || now.timeIntervalSince(lastStatusPoll) >= statusPollInterval {
-            lastSnapshot = probe.snapshot()
-            lastStatusPoll = now
-            pollCount += 1
-            didPoll = true
+            requestStatusPoll(force: lastSnapshot == nil)
         }
 
         guard let snapshot = lastSnapshot else { return }
 
+        render(snapshot: snapshot, didPoll: false)
+    }
+
+    private func requestStatusPoll(force: Bool = false) {
+        let now = Date()
+        guard !isProbeRunning else { return }
+        guard force || now.timeIntervalSince(lastStatusPoll) >= statusPollInterval else { return }
+
+        isProbeRunning = true
+        lastStatusPoll = now
+        probeQueue.async { [weak self] in
+            guard let self else { return }
+            let snapshot = self.probe.snapshot()
+            DispatchQueue.main.async {
+                self.lastSnapshot = snapshot
+                self.isProbeRunning = false
+                self.pollCount += 1
+                self.render(snapshot: snapshot, didPoll: true)
+            }
+        }
+    }
+
+    private func render(snapshot: StatusSnapshot, didPoll: Bool) {
         frame += 1
         statusItem.button?.image = icon.image(state: snapshot.state, frame: frame, tokenUsage: snapshot.tokenUsage)
         statusItem.button?.toolTip = tooltipText(for: snapshot)
