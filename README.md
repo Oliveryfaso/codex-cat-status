@@ -36,10 +36,10 @@ The alert state intentionally avoids broad text matching. It only appears when t
 The indicator next to the cat is the estimated remaining context window for the latest observed Codex turn, based on Codex `token_count` events:
 
 - Menu bar: pixel-art vertical battery next to the cat, without extra status text.
-- Tooltip: current context tokens, locally observed uncached today/week token totals, and 5-hour/7-day quota windows with battery-style percentage bars when Codex reports them.
-- Menu: a custom pixel-style detail panel with status signals, quota bars, and observed token totals.
+- Tooltip: current context estimate and 5-hour/7-day quota windows with battery-style percentage bars when Codex reports them.
+- Menu: a custom pixel-style detail panel with status signals and quota bars.
 
-This is local telemetry from `~/.codex/sessions`, not an official billing or quota API. Today/week totals are best-effort sums of the latest token event per observed turn, excluding cached input tokens when Codex reports them. Values can differ from Codex's own UI because Codex may display thread-specific live context, account-level limits, or server-side usage state that is not fully exposed in local session logs.
+This is local telemetry from `~/.codex/sessions`, not an official billing or quota API. Exact token totals can differ from Codex's own UI because Codex may display thread-specific live context, account-level limits, cached-token accounting, or server-side usage state that is not fully exposed in local session logs.
 
 ## Build
 

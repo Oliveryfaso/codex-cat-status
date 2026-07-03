@@ -933,11 +933,11 @@ final class TokenDetailsPanel: NSView {
         )
 
         drawText(
-            "Ctx \(formatCompact(token.currentTotalTokens ?? 0))  Today \(formatCompact(token.observedTodayTokens))  Week \(formatCompact(token.observedWeekTokens))",
+            "Token totals may differ from Codex UI",
             x: 18,
             y: 188,
-            size: 10,
-            color: NSColor(calibratedWhite: 0.20, alpha: 1)
+            size: 9,
+            color: NSColor(calibratedWhite: 0.38, alpha: 1)
         )
     }
 
@@ -1167,17 +1167,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             context = "Context estimate: unknown"
         }
 
-        let current = token.currentTotalTokens.map { formatCompact($0) } ?? "unknown"
-        let today = formatCompact(token.observedTodayTokens)
-        let week = formatCompact(token.observedWeekTokens)
-
         return [
             "Codex is \(snapshot.state.rawValue)",
             "Signals: conversation \(snapshot.activeConversation), pending \(snapshot.pendingCalls), jobs \(snapshot.runningJobs), review \(snapshot.reviewSignals)",
             context,
-            "Current turn observed: \(current)",
-            "Today new local tokens: \(today)",
-            "This week new local tokens: \(week)",
+            "Token totals are local estimates and may differ from Codex UI",
             "5h quota window: \(formatTokenBucket(token.primaryLimit))",
             "7d quota window: \(formatTokenBucket(token.secondaryLimit))"
         ]
