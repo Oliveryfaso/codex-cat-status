@@ -68,26 +68,32 @@ final class AnimatedCatSprite {
     }
 
     private func drawRunning(frame: Int) {
-        let phase = frame % 6
-        let bob = [0, -1, -1, 0, 1, 0][phase]
-        let legA = phase < 3 ? 1 : -1
-        let legB = -legA
+        let phase = frame % 8
+        let bob = [1, 0, -1, -2, -1, 0, 1, 0][phase]
+        let lean = [0, 1, 1, 0, -1, -1, 0, 1][phase]
+        let frontLeg = [2, 1, 0, -1, -2, -1, 0, 1][phase]
+        let backLeg = [-2, -1, 0, 1, 2, 1, 0, -1][phase]
+        let frontFootDrop = [1, 0, 0, 0, 1, 1, 0, 0][phase]
+        let backFootDrop = [0, 1, 1, 0, 0, 0, 1, 1][phase]
 
-        drawTail(baseX: 22, baseY: 10 + bob, phase: phase)
-        drawBody(x: 8, y: 8 + bob)
-        drawHead(x: 3, y: 5 + bob, blink: false, surprised: false)
+        drawTail(baseX: 22 + lean, baseY: 10 + bob, phase: phase)
+        drawBody(x: 8 + lean, y: 8 + bob)
+        drawHead(x: 3 + lean, y: 5 + bob, blink: false, surprised: false)
 
-        rect(11 + legA, 17 + bob, 3, 2, outline)
-        rect(12 + legA, 16 + bob, 2, 2, furDark)
-        rect(20 + legB, 17 + bob, 3, 2, outline)
-        rect(21 + legB, 16 + bob, 2, 2, furDark)
+        rect(11 + lean + frontLeg, 17 + bob + frontFootDrop, 3, 2, outline)
+        rect(12 + lean + frontLeg, 16 + bob + frontFootDrop, 2, 2, furDark)
+        rect(20 + lean + backLeg, 17 + bob + backFootDrop, 3, 2, outline)
+        rect(21 + lean + backLeg, 16 + bob + backFootDrop, 2, 2, furDark)
 
-        rect(14, 10 + bob, 2, 1, furLight)
-        rect(18, 10 + bob, 2, 1, furLight)
+        rect(14 + lean, 10 + bob, 2, 1, furLight)
+        rect(18 + lean, 10 + bob, 2, 1, furLight)
     }
 
     private func drawIdle(frame: Int) {
-        let breathe = (frame / 4).isMultiple(of: 2) ? 0 : 1
+        let phase = frame % 12
+        let breathe = phase < 6 ? 0 : 1
+        let tailLift = [0, 0, -1, -1, 0, 1, 1, 0, 0, -1, 0, 1][phase]
+        let sleepShift = phase < 6 ? 0 : 1
 
         rect(8, 11, 15, 7 + breathe, outline)
         rect(9, 10, 13, 8 + breathe, outline)
@@ -103,33 +109,36 @@ final class AnimatedCatSprite {
         rect(7, 11, 1, 1, outline)
         rect(10, 11, 1, 1, outline)
 
-        rect(20, 13, 5, 3, outline)
-        rect(21, 14, 4, 1, furDark)
-        rect(18, 15, 4, 2, outline)
-        rect(18, 15, 3, 1, fur)
+        rect(20, 13 + tailLift, 5, 3, outline)
+        rect(21, 14 + tailLift, 4, 1, furDark)
+        rect(18, 15 + tailLift, 4, 2, outline)
+        rect(18, 15 + tailLift, 3, 1, fur)
 
-        if (frame / 5).isMultiple(of: 2) {
-            rect(23, 4, 2, 1, sleep)
-            rect(24, 3, 2, 1, sleep)
-            rect(23, 2, 3, 1, sleep)
+        if phase < 6 {
+            rect(23 + sleepShift, 4, 2, 1, sleep)
+            rect(24 + sleepShift, 3, 2, 1, sleep)
+            rect(23 + sleepShift, 2, 3, 1, sleep)
         } else {
-            rect(24, 3, 2, 1, sleep)
-            rect(25, 2, 2, 1, sleep)
-            rect(24, 1, 3, 1, sleep)
+            rect(24 + sleepShift, 3, 2, 1, sleep)
+            rect(25 + sleepShift, 2, 2, 1, sleep)
+            rect(24 + sleepShift, 1, 3, 1, sleep)
         }
     }
 
     private func drawReview(frame: Int) {
-        let shake = frame.isMultiple(of: 2) ? -1 : 1
+        let phase = frame % 4
+        let shake = [-2, 1, 2, -1][phase]
+        let bob = [0, -1, 0, 1][phase]
+        let markShift = [0, 1, 0, -1][phase]
 
-        drawBody(x: 9 + shake, y: 9)
-        drawHead(x: 4 + shake, y: 4, blink: false, surprised: true)
-        drawTail(baseX: 22 + shake, baseY: 11, phase: 2)
+        drawBody(x: 9 + shake, y: 9 + bob)
+        drawHead(x: 4 + shake, y: 4 + bob, blink: false, surprised: true)
+        drawTail(baseX: 22 + shake, baseY: 11 + bob, phase: phase)
 
-        rect(25, 3, 2, 9, alert)
-        rect(25, 14, 2, 2, alert)
-        rect(14 + shake, 17, 3, 2, outline)
-        rect(20 + shake, 17, 3, 2, outline)
+        rect(25 + markShift, 2 + bob, 2, 10, alert)
+        rect(25 + markShift, 14 + bob, 2, 2, alert)
+        rect(14 + shake, 17 + bob, 3, 2, outline)
+        rect(20 + shake, 17 + bob, 3, 2, outline)
     }
 
     private func drawHead(x: Int, y: Int, blink: Bool, surprised: Bool) {
@@ -164,7 +173,7 @@ final class AnimatedCatSprite {
     }
 
     private func drawTail(baseX: Int, baseY: Int, phase: Int) {
-        let lift = phase.isMultiple(of: 2) ? 0 : -1
+        let lift = [1, 0, -1, -2, -1, 0, 1, 0][phase % 8]
         rect(baseX, baseY + 2 + lift, 5, 2, outline)
         rect(baseX + 3, baseY + lift, 2, 4, outline)
         rect(baseX + 1, baseY + 3 + lift, 4, 1, furDark)
