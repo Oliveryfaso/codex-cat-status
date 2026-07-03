@@ -35,7 +35,7 @@ struct PendingCallRecord {
 
 struct TokenUsageRecord {
     let date: Date
-    let totalTokens: Int
+    let observedTokens: Int
 }
 
 struct TokenBucketSnapshot {
@@ -96,7 +96,7 @@ struct SessionActivityState {
     var latestStartedAt: Date?
     var completedTurns = Set<String>()
     var pending: [String: PendingCallRecord] = [:]
-    var tokenEvents: [TokenUsageRecord] = []
+    var tokenEventsByTurn: [String: TokenUsageRecord] = [:]
     var latestTokenUsage: TokenUsageSnapshot = .empty
 }
 
@@ -535,8 +535,13 @@ final class CodexStatusProbe {
         let rateLimits = payload["rate_limits"] as? [String: Any]
 
         let lastTotal = intValue(lastUsage?["total_tokens"]) ?? 0
-        if lastTotal > 0 {
-            state.tokenEvents.append(TokenUsageRecord(date: timestamp, totalTokens: lastTotal))
+        let observedTotal = observedTokenTotal(from: lastUsage) ?? lastTotal
+        if observedTotal > 0 {
+            let turnKey = state.latestStartedTurn ?? "session"
+            let existing = state.tokenEventsByTurn[turnKey]
+            if existing == nil || timestamp >= existing!.date {
+                state.tokenEventsByTurn[turnKey] = TokenUsageRecord(date: timestamp, observedTokens: observedTotal)
+            }
         }
 
         let contextWindow = intValue(info["model_context_window"])
@@ -558,7 +563,7 @@ final class CodexStatusProbe {
         }
 
         let weekAgo = Date().addingTimeInterval(-7 * 24 * 60 * 60)
-        state.tokenEvents.removeAll { $0.date < weekAgo }
+        state.tokenEventsByTurn = state.tokenEventsByTurn.filter { $0.value.date >= weekAgo }
     }
 
     private func aggregateTokenUsage(from states: [SessionActivityState]) -> TokenUsageSnapshot {
@@ -573,12 +578,12 @@ final class CodexStatusProbe {
         var latest = TokenUsageSnapshot.empty
 
         for state in states {
-            for event in state.tokenEvents {
+            for event in state.tokenEventsByTurn.values {
                 if event.date >= startOfToday {
-                    today += event.totalTokens
+                    today += event.observedTokens
                 }
                 if event.date >= startOfWeek {
-                    week += event.totalTokens
+                    week += event.observedTokens
                 }
             }
 
@@ -747,6 +752,20 @@ final class CodexStatusProbe {
             windowMinutes: windowMinutes,
             resetsAt: resetsAt
         )
+    }
+
+    private func observedTokenTotal(from usage: [String: Any]?) -> Int? {
+        guard let usage else { return nil }
+
+        let input = intValue(usage["input_tokens"])
+        let cachedInput = intValue(usage["cached_input_tokens"]) ?? 0
+        let output = intValue(usage["output_tokens"]) ?? 0
+
+        if let input {
+            return max(0, input - cachedInput) + output
+        }
+
+        return intValue(usage["total_tokens"])
     }
 
     private func intValue(_ value: Any?) -> Int? {
@@ -923,7 +942,7 @@ final class TokenDetailsPanel: NSView {
         )
 
         drawText(
-            "Turn \(formatCompact(token.currentTotalTokens ?? 0))  Today \(formatCompact(token.observedTodayTokens))  Week \(formatCompact(token.observedWeekTokens))",
+            "Ctx \(formatCompact(token.currentTotalTokens ?? 0))  Today \(formatCompact(token.observedTodayTokens))  Week \(formatCompact(token.observedWeekTokens))",
             x: 18,
             y: 241,
             size: 10,
@@ -1153,8 +1172,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             "Signals: conversation \(snapshot.activeConversation), pending \(snapshot.pendingCalls), jobs \(snapshot.runningJobs), review \(snapshot.reviewSignals)",
             context,
             "Current turn observed: \(current)",
-            "Today observed locally: \(today)",
-            "This week observed locally: \(week)",
+            "Today new local tokens: \(today)",
+            "This week new local tokens: \(week)",
             "5h quota window: \(formatTokenBucket(token.primaryLimit))",
             "7d quota window: \(formatTokenBucket(token.secondaryLimit))"
         ]
