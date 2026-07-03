@@ -13,6 +13,7 @@ struct StatusSnapshot {
     let pendingCalls: Int
     let runningJobs: Int
     let reviewSignals: Int
+    let tokenUsage: TokenUsageSnapshot
     let lastChecked: Date
 }
 
@@ -24,11 +25,63 @@ struct PendingCallSignals {
 struct SessionScanSignals {
     let activeConversation: Int
     let pendingCalls: PendingCallSignals
+    let tokenUsage: TokenUsageSnapshot
 }
 
 struct PendingCallRecord {
     let review: Bool
     let turnID: String?
+}
+
+struct TokenUsageRecord {
+    let date: Date
+    let totalTokens: Int
+}
+
+struct TokenBucketSnapshot {
+    let usedPercent: Double
+    let windowMinutes: Int
+    let resetsAt: Date?
+
+    var remainingPercent: Double {
+        max(0, 100 - usedPercent)
+    }
+}
+
+struct TokenUsageSnapshot {
+    let contextWindow: Int?
+    let currentInputTokens: Int?
+    let currentOutputTokens: Int?
+    let currentTotalTokens: Int?
+    let totalSessionTokens: Int?
+    let observedTodayTokens: Int
+    let observedWeekTokens: Int
+    let primaryLimit: TokenBucketSnapshot?
+    let secondaryLimit: TokenBucketSnapshot?
+    let lastUpdated: Date?
+
+    static let empty = TokenUsageSnapshot(
+        contextWindow: nil,
+        currentInputTokens: nil,
+        currentOutputTokens: nil,
+        currentTotalTokens: nil,
+        totalSessionTokens: nil,
+        observedTodayTokens: 0,
+        observedWeekTokens: 0,
+        primaryLimit: nil,
+        secondaryLimit: nil,
+        lastUpdated: nil
+    )
+
+    var remainingContextTokens: Int? {
+        guard let contextWindow, let currentInputTokens else { return nil }
+        return max(0, contextWindow - currentInputTokens)
+    }
+
+    var menuBarText: String {
+        guard let remainingContextTokens else { return "--" }
+        return formatCompact(remainingContextTokens)
+    }
 }
 
 struct SessionActivityState {
@@ -38,6 +91,46 @@ struct SessionActivityState {
     var latestStartedAt: Date?
     var completedTurns = Set<String>()
     var pending: [String: PendingCallRecord] = [:]
+    var tokenEvents: [TokenUsageRecord] = []
+    var latestTokenUsage: TokenUsageSnapshot = .empty
+}
+
+func formatCompact(_ value: Int) -> String {
+    let number = Double(value)
+    if value >= 1_000_000 {
+        return String(format: "%.1fM", number / 1_000_000)
+    }
+    if value >= 10_000 {
+        return "\(Int(number / 1_000))k"
+    }
+    if value >= 1_000 {
+        return String(format: "%.1fk", number / 1_000)
+    }
+    return "\(value)"
+}
+
+func formatPercent(_ value: Double) -> String {
+    if value >= 10 {
+        return "\(Int(value.rounded()))%"
+    }
+    return String(format: "%.1f%%", value)
+}
+
+func formatTokenBucket(_ bucket: TokenBucketSnapshot?) -> String {
+    guard let bucket else { return "unknown" }
+
+    let hours = Double(bucket.windowMinutes) / 60
+    let window = bucket.windowMinutes >= 1440
+        ? "\(bucket.windowMinutes / 1440)d"
+        : String(format: "%.0fh", hours)
+    let reset: String
+    if let resetsAt = bucket.resetsAt {
+        reset = DateFormatter.localizedString(from: resetsAt, dateStyle: .none, timeStyle: .short)
+    } else {
+        reset = "unknown"
+    }
+
+    return "\(formatPercent(bucket.remainingPercent)) left in \(window), resets \(reset)"
 }
 
 final class AnimatedCatSprite {
@@ -229,6 +322,7 @@ final class CodexStatusProbe {
             pendingCalls: sessionSignals.pendingCalls.running,
             runningJobs: runningJobs,
             reviewSignals: reviewSignals,
+            tokenUsage: sessionSignals.tokenUsage,
             lastChecked: Date()
         )
     }
@@ -237,6 +331,7 @@ final class CodexStatusProbe {
         var activeConversation = 0
         var pendingRunning = 0
         var pendingReview = 0
+        var tokenStates: [SessionActivityState] = []
         let sessions = recentSessionURLs(limit: maxSessionFiles)
         let activeSessionPaths = Set(sessions.map(\.path))
         sessionStates = sessionStates.filter { activeSessionPaths.contains($0.key) }
@@ -263,6 +358,7 @@ final class CodexStatusProbe {
 
             state.offset = size
             sessionStates[session.path] = state
+            tokenStates.append(state)
 
             let signals = sessionSignals(from: state)
             guard signals.active else {
@@ -276,7 +372,8 @@ final class CodexStatusProbe {
 
         return SessionScanSignals(
             activeConversation: activeConversation,
-            pendingCalls: PendingCallSignals(running: pendingRunning, review: pendingReview)
+            pendingCalls: PendingCallSignals(running: pendingRunning, review: pendingReview),
+            tokenUsage: aggregateTokenUsage(from: tokenStates)
         )
     }
 
@@ -316,6 +413,8 @@ final class CodexStatusProbe {
                     state.latestStartedAt = parseStartedAt(payload["started_at"]) ?? parseTimestamp(json["timestamp"] as? String)
                 } else if payloadType == "task_complete", let turnID = payload["turn_id"] as? String {
                     state.completedTurns.insert(turnID)
+                } else if payloadType == "token_count", let timestamp = parseTimestamp(json["timestamp"] as? String) {
+                    applyTokenCount(payload: payload, timestamp: timestamp, to: &state)
                 }
             } else if payloadType == "function_call" || payloadType == "custom_tool_call" {
                 guard let callID = payload["call_id"] as? String else { continue }
@@ -334,6 +433,82 @@ final class CodexStatusProbe {
                 }
             }
         }
+    }
+
+    private func applyTokenCount(payload: [String: Any], timestamp: Date, to state: inout SessionActivityState) {
+        guard let info = payload["info"] as? [String: Any] else { return }
+
+        let lastUsage = info["last_token_usage"] as? [String: Any]
+        let totalUsage = info["total_token_usage"] as? [String: Any]
+        let rateLimits = payload["rate_limits"] as? [String: Any]
+
+        let lastTotal = intValue(lastUsage?["total_tokens"]) ?? 0
+        if lastTotal > 0 {
+            state.tokenEvents.append(TokenUsageRecord(date: timestamp, totalTokens: lastTotal))
+        }
+
+        let contextWindow = intValue(info["model_context_window"])
+        let snapshot = TokenUsageSnapshot(
+            contextWindow: contextWindow,
+            currentInputTokens: intValue(lastUsage?["input_tokens"]),
+            currentOutputTokens: intValue(lastUsage?["output_tokens"]),
+            currentTotalTokens: intValue(lastUsage?["total_tokens"]),
+            totalSessionTokens: intValue(totalUsage?["total_tokens"]),
+            observedTodayTokens: 0,
+            observedWeekTokens: 0,
+            primaryLimit: parseTokenBucket(rateLimits?["primary"]),
+            secondaryLimit: parseTokenBucket(rateLimits?["secondary"]),
+            lastUpdated: timestamp
+        )
+
+        if state.latestTokenUsage.lastUpdated == nil || timestamp >= state.latestTokenUsage.lastUpdated! {
+            state.latestTokenUsage = snapshot
+        }
+
+        let weekAgo = Date().addingTimeInterval(-7 * 24 * 60 * 60)
+        state.tokenEvents.removeAll { $0.date < weekAgo }
+    }
+
+    private func aggregateTokenUsage(from states: [SessionActivityState]) -> TokenUsageSnapshot {
+        let calendar = Calendar.current
+        let now = Date()
+        let startOfToday = calendar.startOfDay(for: now)
+        let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: now)?.start
+            ?? now.addingTimeInterval(-7 * 24 * 60 * 60)
+
+        var today = 0
+        var week = 0
+        var latest = TokenUsageSnapshot.empty
+
+        for state in states {
+            for event in state.tokenEvents {
+                if event.date >= startOfToday {
+                    today += event.totalTokens
+                }
+                if event.date >= startOfWeek {
+                    week += event.totalTokens
+                }
+            }
+
+            let candidate = state.latestTokenUsage
+            if let candidateUpdated = candidate.lastUpdated,
+               latest.lastUpdated == nil || candidateUpdated > latest.lastUpdated! {
+                latest = candidate
+            }
+        }
+
+        return TokenUsageSnapshot(
+            contextWindow: latest.contextWindow,
+            currentInputTokens: latest.currentInputTokens,
+            currentOutputTokens: latest.currentOutputTokens,
+            currentTotalTokens: latest.currentTotalTokens,
+            totalSessionTokens: latest.totalSessionTokens,
+            observedTodayTokens: today,
+            observedWeekTokens: week,
+            primaryLimit: latest.primaryLimit,
+            secondaryLimit: latest.secondaryLimit,
+            lastUpdated: latest.lastUpdated
+        )
     }
 
     private func sessionSignals(from state: SessionActivityState) -> (active: Bool, pending: PendingCallSignals) {
@@ -460,6 +635,54 @@ final class CodexStatusProbe {
         return UInt64(size)
     }
 
+    private func parseTokenBucket(_ value: Any?) -> TokenBucketSnapshot? {
+        guard let value = value as? [String: Any],
+              let usedPercent = doubleValue(value["used_percent"]),
+              let windowMinutes = intValue(value["window_minutes"])
+        else {
+            return nil
+        }
+
+        let resetsAt: Date?
+        if let seconds = doubleValue(value["resets_at"]) {
+            resetsAt = Date(timeIntervalSince1970: seconds)
+        } else {
+            resetsAt = nil
+        }
+
+        return TokenBucketSnapshot(
+            usedPercent: usedPercent,
+            windowMinutes: windowMinutes,
+            resetsAt: resetsAt
+        )
+    }
+
+    private func intValue(_ value: Any?) -> Int? {
+        if let value = value as? Int {
+            return value
+        }
+        if let value = value as? NSNumber {
+            return value.intValue
+        }
+        if let value = value as? String {
+            return Int(value)
+        }
+        return nil
+    }
+
+    private func doubleValue(_ value: Any?) -> Double? {
+        if let value = value as? Double {
+            return value
+        }
+        if let value = value as? NSNumber {
+            return value.doubleValue
+        }
+        if let value = value as? String {
+            return Double(value)
+        }
+        return nil
+    }
+
     private func countRunningJobs() -> Int {
         let stateDb = home.appendingPathComponent(".codex/sqlite/state_5.sqlite").path
         let appDb = home.appendingPathComponent(".codex/sqlite/codex-dev.db").path
@@ -531,7 +754,7 @@ final class CodexStatusProbe {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let animationInterval: TimeInterval = 0.16
     private let statusPollInterval: TimeInterval = 1.0
-    private let statusItem = NSStatusBar.system.statusItem(withLength: 34)
+    private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let probe = CodexStatusProbe()
     private let icon = AnimatedCatSprite()
     private var timer: Timer?
@@ -541,6 +764,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var lastStatusPoll = Date.distantPast
     private var statusMenuItem = NSMenuItem()
     private var detailMenuItem = NSMenuItem()
+    private var tokenMenuItem = NSMenuItem()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -558,8 +782,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         statusMenuItem = NSMenuItem(title: "Codex: checking", action: nil, keyEquivalent: "")
         detailMenuItem = NSMenuItem(title: "Reading ~/.codex status", action: nil, keyEquivalent: "")
+        tokenMenuItem = NSMenuItem(title: "Token usage: checking", action: nil, keyEquivalent: "")
         menu.addItem(statusMenuItem)
         menu.addItem(detailMenuItem)
+        menu.addItem(tokenMenuItem)
         menu.addItem(.separator())
 
         let quit = NSMenuItem(title: "Quit Codex Cat", action: #selector(quit), keyEquivalent: "q")
@@ -568,7 +794,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         statusItem.menu = menu
         statusItem.button?.title = ""
-        statusItem.button?.imagePosition = .imageOnly
+        statusItem.button?.imagePosition = .imageLeft
         statusItem.button?.imageScaling = .scaleProportionallyUpOrDown
     }
 
@@ -586,10 +812,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         frame += 1
         statusItem.button?.image = icon.image(state: snapshot.state, frame: frame)
-        statusItem.button?.toolTip = "Codex is \(snapshot.state.rawValue)"
+        statusItem.button?.title = " \(snapshot.tokenUsage.menuBarText)"
+        statusItem.button?.toolTip = tooltipText(for: snapshot)
         statusMenuItem.title = "Codex: \(snapshot.state.rawValue)"
         if didPoll, pollCount.isMultiple(of: 10) {
-            appendLog("state=\(snapshot.state.rawValue) conversation=\(snapshot.activeConversation) pending=\(snapshot.pendingCalls) jobs=\(snapshot.runningJobs) review=\(snapshot.reviewSignals)")
+            appendLog("state=\(snapshot.state.rawValue) conversation=\(snapshot.activeConversation) pending=\(snapshot.pendingCalls) jobs=\(snapshot.runningJobs) review=\(snapshot.reviewSignals) token=\(snapshot.tokenUsage.menuBarText)")
         }
 
         let time = DateFormatter.localizedString(
@@ -598,6 +825,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             timeStyle: .medium
         )
         detailMenuItem.title = "conversation \(snapshot.activeConversation), pending \(snapshot.pendingCalls), jobs \(snapshot.runningJobs), review \(snapshot.reviewSignals), \(time)"
+        tokenMenuItem.title = tokenMenuTitle(for: snapshot.tokenUsage)
+    }
+
+    private func tooltipText(for snapshot: StatusSnapshot) -> String {
+        let token = snapshot.tokenUsage
+        let context: String
+        if let remaining = token.remainingContextTokens, let window = token.contextWindow {
+            context = "\(formatCompact(remaining)) / \(formatCompact(window)) context left"
+        } else {
+            context = "Context remaining unknown"
+        }
+
+        let current = token.currentTotalTokens.map { formatCompact($0) } ?? "unknown"
+        let today = formatCompact(token.observedTodayTokens)
+        let week = formatCompact(token.observedWeekTokens)
+
+        return [
+            "Codex is \(snapshot.state.rawValue)",
+            context,
+            "Current turn: \(current)",
+            "Today observed: \(today)",
+            "This week observed: \(week)",
+            "5h quota: \(formatTokenBucket(token.primaryLimit))",
+            "7d quota: \(formatTokenBucket(token.secondaryLimit))"
+        ].joined(separator: "\n")
+    }
+
+    private func tokenMenuTitle(for token: TokenUsageSnapshot) -> String {
+        let remaining = token.remainingContextTokens.map { formatCompact($0) } ?? "--"
+        let today = formatCompact(token.observedTodayTokens)
+        let week = formatCompact(token.observedWeekTokens)
+        return "tokens left \(remaining), today \(today), week \(week)"
     }
 
     @objc private func quit() {
@@ -625,7 +884,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 if CommandLine.arguments.contains("--once") {
     let snapshot = CodexStatusProbe().snapshot()
-    print("state=\(snapshot.state.rawValue) conversation=\(snapshot.activeConversation) pending=\(snapshot.pendingCalls) jobs=\(snapshot.runningJobs) review=\(snapshot.reviewSignals)")
+    print("state=\(snapshot.state.rawValue) conversation=\(snapshot.activeConversation) pending=\(snapshot.pendingCalls) jobs=\(snapshot.runningJobs) review=\(snapshot.reviewSignals) token_left=\(snapshot.tokenUsage.menuBarText) today=\(formatCompact(snapshot.tokenUsage.observedTodayTokens)) week=\(formatCompact(snapshot.tokenUsage.observedWeekTokens))")
 } else {
     let app = NSApplication.shared
     let delegate = AppDelegate()

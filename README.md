@@ -9,6 +9,7 @@ Codex Cat Status does not modify `/Applications/Codex.app`. It runs as a separat
 - Running: at least one recent Codex conversation is actively thinking, writing, or running a tool.
 - Resting: no recent Codex conversation is currently active.
 - Alert: Codex is waiting for a concrete approval action, such as an escalated command request.
+- Token display: a compact estimate of remaining context tokens is shown next to the cat.
 
 ## States
 
@@ -29,6 +30,16 @@ The menu item shows the signal counts used for the current state:
 - `review`: unfinished approval-required commands or explicit review/approval jobs.
 
 The alert state intentionally avoids broad text matching. It only appears when there is a pending command whose arguments explicitly request `sandbox_permissions=require_escalated`, or when Codex local job state explicitly says review/approval is needed. Normal thinking, writing, and tool use stays in the running state.
+
+## Token Display
+
+The number next to the cat is the estimated remaining context window for the latest observed Codex turn, based on Codex `token_count` events:
+
+- Menu bar: compact remaining context tokens, for example `84k`.
+- Tooltip: current turn tokens, locally observed today/week token totals, and 5-hour/7-day quota window percentages when Codex reports them.
+- Menu: a compact token summary alongside the conversation/job counts.
+
+This is local telemetry from `~/.codex/sessions`, not an official billing or quota API. Today/week totals are best-effort sums of locally observed `last_token_usage` events.
 
 ## Build
 
