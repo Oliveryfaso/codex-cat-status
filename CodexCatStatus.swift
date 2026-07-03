@@ -1054,9 +1054,9 @@ final class TokenDetailsPanel: NSView {
     }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let animationInterval: TimeInterval = 0.16
-    private let statusPollInterval: TimeInterval = 1.0
+    private let statusPollInterval: TimeInterval = 0.5
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let probe = CodexStatusProbe()
     private let icon = PixelStatusBadge()
@@ -1073,13 +1073,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updateStatus()
         appendLog("launched")
 
-        timer = Timer.scheduledTimer(withTimeInterval: animationInterval, repeats: true) { [weak self] _ in
+        let refreshTimer = Timer(timeInterval: animationInterval, repeats: true) { [weak self] _ in
             self?.updateStatus()
         }
+        timer = refreshTimer
+        RunLoop.main.add(refreshTimer, forMode: .common)
     }
 
     private func configureMenu() {
         let menu = NSMenu()
+        menu.delegate = self
 
         let detailsItem = NSMenuItem()
         detailsItem.view = detailsPanel
@@ -1094,6 +1097,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.button?.title = ""
         statusItem.button?.imagePosition = .imageOnly
         statusItem.button?.imageScaling = .scaleProportionallyUpOrDown
+    }
+
+    func menuWillOpen(_ menu: NSMenu) {
+        lastStatusPoll = .distantPast
+        updateStatus()
     }
 
     private func updateStatus() {
