@@ -21,6 +21,16 @@ struct PendingCallSignals {
     let review: Int
 }
 
+struct SessionScanSignals {
+    let activeConversation: Int
+    let pendingCalls: PendingCallSignals
+}
+
+struct PendingCallRecord {
+    let review: Bool
+    let turnID: String?
+}
+
 final class AnimatedCatSprite {
     private let width = 30
     private let height = 22
@@ -177,17 +187,18 @@ final class CodexStatusProbe {
     private let home = FileManager.default.homeDirectoryForCurrentUser
     private let sessionScanWindow: TimeInterval = 24 * 60 * 60
     private let maxConversationTurnWindow: TimeInterval = 2 * 60 * 60
+    private let maxSessionFiles = 30
+    private let sessionTailBytes: UInt64 = 1_500_000
 
     func snapshot() -> StatusSnapshot {
-        let activeConversation = countActiveConversation()
-        let pendingCalls = countPendingSessionCalls()
+        let sessionSignals = scanRecentSessions()
         let runningJobs = countRunningJobs()
-        let reviewSignals = countReviewSignals() + pendingCalls.review
+        let reviewSignals = countReviewSignals() + sessionSignals.pendingCalls.review
 
         let state: CatState
         if reviewSignals > 0 {
             state = .review
-        } else if activeConversation > 0 || pendingCalls.running > 0 || runningJobs > 0 {
+        } else if sessionSignals.activeConversation > 0 || sessionSignals.pendingCalls.running > 0 || runningJobs > 0 {
             state = .running
         } else {
             state = .idle
@@ -195,120 +206,124 @@ final class CodexStatusProbe {
 
         return StatusSnapshot(
             state: state,
-            activeConversation: activeConversation,
-            pendingCalls: pendingCalls.running,
+            activeConversation: sessionSignals.activeConversation,
+            pendingCalls: sessionSignals.pendingCalls.running,
             runningJobs: runningJobs,
             reviewSignals: reviewSignals,
             lastChecked: Date()
         )
     }
 
-    private func countActiveConversation() -> Int {
-        guard let latestSession = latestSessionURL(),
-              let text = readTail(url: latestSession, maxBytes: 600_000)
-        else {
-            return 0
+    private func scanRecentSessions() -> SessionScanSignals {
+        var activeConversation = 0
+        var pendingRunning = 0
+        var pendingReview = 0
+
+        for session in recentSessionURLs(limit: maxSessionFiles) {
+            guard let text = readTail(url: session, maxBytes: sessionTailBytes) else {
+                continue
+            }
+
+            let signals = parseSessionSignals(text)
+            guard signals.active else { continue }
+
+            activeConversation += 1
+            pendingRunning += signals.pending.running
+            pendingReview += signals.pending.review
         }
+
+        return SessionScanSignals(
+            activeConversation: activeConversation,
+            pendingCalls: PendingCallSignals(running: pendingRunning, review: pendingReview)
+        )
+    }
+
+    private func parseSessionSignals(_ text: String) -> (active: Bool, pending: PendingCallSignals) {
 
         var latestStartedTurn: String?
         var latestStartedAt: Date?
         var completedTurns = Set<String>()
+        var pending: [String: PendingCallRecord] = [:]
 
         for line in text.split(separator: "\n") {
             guard let data = String(line).data(using: .utf8),
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let timestamp = parseTimestamp(json["timestamp"] as? String),
                   let outerType = json["type"] as? String,
-                  outerType == "event_msg",
                   let payload = json["payload"] as? [String: Any],
-                  let eventType = payload["type"] as? String
+                  let payloadType = payload["type"] as? String
             else {
                 continue
             }
 
-            if eventType == "task_started", let turnId = payload["turn_id"] as? String {
-                latestStartedTurn = turnId
-                latestStartedAt = timestamp
-            } else if eventType == "task_complete", let turnId = payload["turn_id"] as? String {
-                completedTurns.insert(turnId)
+            if outerType == "event_msg" {
+                if payloadType == "task_started", let turnID = payload["turn_id"] as? String {
+                    latestStartedTurn = turnID
+                    latestStartedAt = parseStartedAt(payload["started_at"]) ?? parseTimestamp(json["timestamp"] as? String)
+                } else if payloadType == "task_complete", let turnID = payload["turn_id"] as? String {
+                    completedTurns.insert(turnID)
+                }
+            } else if payloadType == "function_call" || payloadType == "custom_tool_call" {
+                guard let callID = payload["call_id"] as? String else { continue }
+
+                let name = payload["name"] as? String ?? ""
+                let arguments = payload["arguments"] as? String
+                let metadata = payload["internal_chat_message_metadata_passthrough"] as? [String: Any]
+                let turnID = metadata?["turn_id"] as? String
+                pending[callID] = PendingCallRecord(
+                    review: name == "exec_command" && isEscalatedExecArguments(arguments),
+                    turnID: turnID
+                )
+            } else if payloadType == "function_call_output" || payloadType == "custom_tool_call_output" {
+                if let callID = payload["call_id"] as? String {
+                    pending.removeValue(forKey: callID)
+                }
             }
         }
 
-        guard let latestStartedTurn,
+        guard let activeTurn = latestStartedTurn,
               let latestStartedAt,
-              !completedTurns.contains(latestStartedTurn)
+              !completedTurns.contains(activeTurn),
+              Date().timeIntervalSince(latestStartedAt) <= maxConversationTurnWindow
         else {
-            return 0
+            return (false, PendingCallSignals(running: 0, review: 0))
         }
 
-        return Date().timeIntervalSince(latestStartedAt) <= maxConversationTurnWindow ? 1 : 0
+        let activePending = pending.values.filter { record in
+            record.turnID == nil || record.turnID == activeTurn
+        }
+
+        let running = activePending.filter { !$0.review }.count
+        let review = activePending.filter { $0.review }.count
+        return (true, PendingCallSignals(running: running, review: review))
     }
 
-    private func latestSessionURL() -> URL? {
+    private func recentSessionURLs(limit: Int) -> [URL] {
         let sessionsDir = home.appendingPathComponent(".codex/sessions")
         guard let enumerator = fileManager.enumerator(
             at: sessionsDir,
             includingPropertiesForKeys: [.contentModificationDateKey],
             options: [.skipsHiddenFiles]
         ) else {
-            return nil
+            return []
         }
 
         let cutoff = Date().addingTimeInterval(-sessionScanWindow)
-        var latestSession: URL?
-        var latestModified = Date.distantPast
+        var sessions: [(url: URL, modified: Date)] = []
 
         for case let url as URL in enumerator {
             guard url.pathExtension == "jsonl" else { continue }
             guard
                 let values = try? url.resourceValues(forKeys: [.contentModificationDateKey]),
                 let modified = values.contentModificationDate,
-                modified >= cutoff,
-                modified > latestModified
+                modified >= cutoff
             else {
                 continue
             }
 
-            latestSession = url
-            latestModified = modified
+            sessions.append((url, modified))
         }
 
-        return latestSession
-    }
-
-    private func countPendingSessionCalls() -> PendingCallSignals {
-        guard let latestSession = latestSessionURL(),
-              let text = readTail(url: latestSession, maxBytes: 600_000)
-        else {
-            return PendingCallSignals(running: 0, review: 0)
-        }
-
-        var pending: [String: Bool] = [:]
-
-        for line in text.split(separator: "\n") {
-            guard let data = String(line).data(using: .utf8),
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let payload = json["payload"] as? [String: Any],
-                  let itemType = payload["type"] as? String
-            else {
-                continue
-            }
-
-            if itemType == "function_call" || itemType == "custom_tool_call" {
-                guard let callId = payload["call_id"] as? String else { continue }
-                let name = payload["name"] as? String ?? ""
-                let arguments = payload["arguments"] as? String
-                pending[callId] = name == "exec_command" && isEscalatedExecArguments(arguments)
-            } else if itemType == "function_call_output" || itemType == "custom_tool_call_output" {
-                if let callId = payload["call_id"] as? String {
-                    pending.removeValue(forKey: callId)
-                }
-            }
-        }
-
-        let running = pending.values.filter { !$0 }.count
-        let review = pending.values.filter { $0 }.count
-        return PendingCallSignals(running: running, review: review)
+        return Array(sessions.sorted { $0.modified > $1.modified }.prefix(limit).map(\.url))
     }
 
     private func isEscalatedExecArguments(_ arguments: String?) -> Bool {
@@ -320,6 +335,18 @@ final class CodexStatusProbe {
         }
 
         return json["sandbox_permissions"] as? String == "require_escalated"
+    }
+
+    private func parseStartedAt(_ value: Any?) -> Date? {
+        if let number = value as? NSNumber {
+            return Date(timeIntervalSince1970: number.doubleValue)
+        }
+
+        if let seconds = value as? TimeInterval {
+            return Date(timeIntervalSince1970: seconds)
+        }
+
+        return nil
     }
 
     private func parseTimestamp(_ value: String?) -> Date? {
