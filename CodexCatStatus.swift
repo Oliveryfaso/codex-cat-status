@@ -78,9 +78,14 @@ struct TokenUsageSnapshot {
         return max(0, contextWindow - currentInputTokens)
     }
 
+    var remainingContextPercent: Double? {
+        guard let contextWindow, contextWindow > 0, let remainingContextTokens else { return nil }
+        return min(100, max(0, Double(remainingContextTokens) / Double(contextWindow) * 100))
+    }
+
     var menuBarText: String {
-        guard let remainingContextTokens else { return "--" }
-        return formatCompact(remainingContextTokens)
+        guard let remainingContextPercent else { return "[------] --" }
+        return formatBattery(remainingContextPercent, width: 6, includePercent: true)
     }
 }
 
@@ -116,6 +121,23 @@ func formatPercent(_ value: Double) -> String {
     return String(format: "%.1f%%", value)
 }
 
+func formatBattery(_ percent: Double?, width: Int = 10, includePercent: Bool = true) -> String {
+    guard let percent else {
+        return "[\(String(repeating: "-", count: width))]" + (includePercent ? " --" : "")
+    }
+
+    let clamped = min(100, max(0, percent))
+    var filled = Int((clamped / 100 * Double(width)).rounded())
+    if clamped > 0, filled == 0 {
+        filled = 1
+    }
+    filled = min(width, max(0, filled))
+
+    let empty = width - filled
+    let bar = "[\(String(repeating: "#", count: filled))\(String(repeating: "-", count: empty))]"
+    return includePercent ? "\(bar) \(formatPercent(clamped))" : bar
+}
+
 func formatTokenBucket(_ bucket: TokenBucketSnapshot?) -> String {
     guard let bucket else { return "unknown" }
 
@@ -130,7 +152,7 @@ func formatTokenBucket(_ bucket: TokenBucketSnapshot?) -> String {
         reset = "unknown"
     }
 
-    return "\(formatPercent(bucket.remainingPercent)) left in \(window), resets \(reset)"
+    return "\(formatBattery(bucket.remainingPercent)) left in \(window), resets \(reset)"
 }
 
 final class AnimatedCatSprite {
@@ -831,8 +853,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func tooltipText(for snapshot: StatusSnapshot) -> String {
         let token = snapshot.tokenUsage
         let context: String
-        if let remaining = token.remainingContextTokens, let window = token.contextWindow {
-            context = "\(formatCompact(remaining)) / \(formatCompact(window)) context left"
+        if let remaining = token.remainingContextTokens,
+           let window = token.contextWindow,
+           let percent = token.remainingContextPercent {
+            context = "\(formatBattery(percent)) context left (\(formatCompact(remaining)) / \(formatCompact(window)))"
         } else {
             context = "Context remaining unknown"
         }
@@ -853,10 +877,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func tokenMenuTitle(for token: TokenUsageSnapshot) -> String {
-        let remaining = token.remainingContextTokens.map { formatCompact($0) } ?? "--"
+        let remaining = token.remainingContextPercent.map { formatBattery($0, width: 8, includePercent: true) } ?? "[--------] --"
         let today = formatCompact(token.observedTodayTokens)
         let week = formatCompact(token.observedWeekTokens)
-        return "tokens left \(remaining), today \(today), week \(week)"
+        return "context \(remaining), today \(today), week \(week)"
     }
 
     @objc private func quit() {
