@@ -1,38 +1,62 @@
 # Codex Cat Status
 
-Small macOS menu bar companion for Codex Desktop.
+A tiny macOS menu bar companion for Codex Desktop. It replaces a plain status indicator with an animated pixel cat that reflects what Codex is doing.
 
-It does not modify `/Applications/Codex.app`. Instead, it reads local Codex state under `~/.codex` and shows a tiny animated bitmap sprite in the menu bar:
+![Codex Cat Status preview](previews/states.png)
 
-- Running sprite: any recent Codex conversation whose latest turn has started but has not completed, an unfinished Codex tool/command call in that active turn, or an active local job.
-- Alert sprite: an unfinished command whose arguments explicitly request `sandbox_permissions=require_escalated`, or a local job that explicitly needs review/approval.
-- Resting sprite: idle.
+Codex Cat Status does not modify `/Applications/Codex.app`. It runs as a separate menu bar app, reads local Codex state under `~/.codex`, and turns that state into three simple visual signals:
 
-Status is inferred from local Codex files, because Codex Desktop does not expose a public menu-bar status API. The menu item shows the signal counts used for the current state:
+- Running: at least one recent Codex conversation is actively thinking, writing, or running a tool.
+- Resting: no recent Codex conversation is currently active.
+- Alert: Codex is waiting for a concrete approval action, such as an escalated command request.
+
+## States
+
+| Resting | Running | Approval needed |
+| --- | --- | --- |
+| ![Resting pixel cat](previews/idle.gif) | ![Running pixel cat](previews/running.gif) | ![Alert pixel cat](previews/review.gif) |
+| No active Codex turn is running. | A Codex turn has started and has not completed. | A pending command explicitly requests approval. |
+
+## How It Works
+
+The app infers status from local Codex files because Codex Desktop does not expose a public menu bar status API.
+
+The menu item shows the signal counts used for the current state:
 
 - `conversation`: recent Codex sessions whose latest turn has started and has not yet written `task_complete`.
 - `pending`: unfinished tool or command calls in active Codex turns.
 - `jobs`: active local agent or automation jobs.
 - `review`: unfinished approval-required commands or explicit review/approval jobs.
 
-The alert state intentionally avoids broad text matching. It only appears for an unfinished approval-required command, while normal thinking/writing stays in the running state.
+The alert state intentionally avoids broad text matching. It only appears when there is a pending command whose arguments explicitly request `sandbox_permissions=require_escalated`, or when Codex local job state explicitly says review/approval is needed. Normal thinking, writing, and tool use stays in the running state.
 
-Build:
+## Build
 
 ```sh
 sh build.sh
 ```
 
-Run:
+This creates `CodexCatStatus.app` in the project directory.
+
+## Run
 
 ```sh
 open CodexCatStatus.app
 ```
 
-Generate state previews:
+The cat appears in the macOS menu bar. Use the menu item `Quit Codex Cat` to stop it.
+
+## Generate Previews
 
 ```sh
 python3 generate_previews.py
 ```
 
-Quit from the menu bar item: `Quit Codex Cat`.
+This regenerates the PNG/GIF assets in `previews/`.
+
+## Notes
+
+- Designed for macOS and Codex Desktop.
+- Reads local state only; it does not send data anywhere.
+- Logs lightweight status checks to `/tmp/codex-cat-status.log`.
+- Status is best-effort because it depends on Codex's local session files and SQLite state.
