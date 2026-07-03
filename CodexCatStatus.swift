@@ -143,17 +143,16 @@ func formatBattery(_ percent: Double?, width: Int = 10, includePercent: Bool = t
 }
 
 final class AnimatedCatSprite {
-    private let width = 30
-    private let height = 22
+    private let width = 34
+    private let height = 24
 
-    private let outline = NSColor(calibratedWhite: 0.08, alpha: 1)
-    private let fur = NSColor(calibratedRed: 0.92, green: 0.50, blue: 0.20, alpha: 1)
-    private let furLight = NSColor(calibratedRed: 1.00, green: 0.70, blue: 0.36, alpha: 1)
-    private let furDark = NSColor(calibratedRed: 0.58, green: 0.27, blue: 0.12, alpha: 1)
-    private let cream = NSColor(calibratedRed: 1.00, green: 0.86, blue: 0.58, alpha: 1)
-    private let eye = NSColor(calibratedRed: 0.22, green: 0.92, blue: 0.54, alpha: 1)
-    private let alert = NSColor(calibratedRed: 1.00, green: 0.18, blue: 0.20, alpha: 1)
-    private let sleep = NSColor(calibratedRed: 0.25, green: 0.55, blue: 1.00, alpha: 1)
+    private let outline = NSColor(calibratedWhite: 0.04, alpha: 1)
+    private let fur = NSColor(calibratedWhite: 0.90, alpha: 1)
+    private let furLight = NSColor.white
+    private let furDark = NSColor(calibratedWhite: 0.36, alpha: 1)
+    private let mid = NSColor(calibratedWhite: 0.68, alpha: 1)
+    private let eye = NSColor(calibratedWhite: 0.03, alpha: 1)
+    private let signal = NSColor(calibratedWhite: 0.95, alpha: 1)
 
     func image(state: CatState, frame: Int) -> NSImage {
         let image = NSImage(size: NSSize(width: width, height: height))
@@ -180,76 +179,77 @@ final class AnimatedCatSprite {
 
     private func drawRunning(frame: Int) {
         let phase = frame % 8
-        let bob = [1, 0, -1, -2, -1, 0, 1, 0][phase]
-        let lean = [0, 1, 1, 0, -1, -1, 0, 1][phase]
-        let frontLeg = [2, 1, 0, -1, -2, -1, 0, 1][phase]
-        let backLeg = [-2, -1, 0, 1, 2, 1, 0, -1][phase]
-        let frontFootDrop = [1, 0, 0, 0, 1, 1, 0, 0][phase]
-        let backFootDrop = [0, 1, 1, 0, 0, 0, 1, 1][phase]
+        let bob = [2, 0, -2, -3, -1, 1, 3, 1][phase]
+        let lean = [-1, 1, 2, 1, -1, -2, -1, 0][phase]
+        let stretch = [0, 1, 2, 1, 0, 1, 2, 1][phase]
+        let frontLeg = [4, 2, 0, -3, -5, -2, 1, 3][phase]
+        let backLeg = [-5, -2, 1, 4, 5, 2, -1, -4][phase]
+        let frontDrop = [2, 1, 0, 0, 1, 2, 2, 1][phase]
+        let backDrop = [0, 1, 2, 2, 1, 0, 0, 1][phase]
 
-        drawTail(baseX: 22 + lean, baseY: 10 + bob, phase: phase)
-        drawBody(x: 8 + lean, y: 8 + bob)
-        drawHead(x: 3 + lean, y: 5 + bob, blink: false, surprised: false)
+        drawTail(baseX: 25 + lean, baseY: 10 + bob, phase: phase, wild: true)
+        drawBody(x: 9 + lean, y: 8 + bob, stretch: stretch)
+        drawHead(x: 3 + lean, y: 4 + bob, blink: false, surprised: false)
 
-        rect(11 + lean + frontLeg, 17 + bob + frontFootDrop, 3, 2, outline)
-        rect(12 + lean + frontLeg, 16 + bob + frontFootDrop, 2, 2, furDark)
-        rect(20 + lean + backLeg, 17 + bob + backFootDrop, 3, 2, outline)
-        rect(21 + lean + backLeg, 16 + bob + backFootDrop, 2, 2, furDark)
+        rect(12 + lean + frontLeg, 18 + bob + frontDrop, 5, 2, outline)
+        rect(13 + lean + frontLeg, 17 + bob + frontDrop, 3, 2, furDark)
+        rect(22 + lean + backLeg, 18 + bob + backDrop, 5, 2, outline)
+        rect(23 + lean + backLeg, 17 + bob + backDrop, 3, 2, furDark)
 
-        rect(14 + lean, 10 + bob, 2, 1, furLight)
-        rect(18 + lean, 10 + bob, 2, 1, furLight)
+        rect(0, 21, 3, 1, mid.withAlphaComponent(phase % 2 == 0 ? 0.75 : 0.35))
+        rect(3, 20, 4, 1, mid.withAlphaComponent(phase % 2 == 0 ? 0.55 : 0.2))
     }
 
     private func drawIdle(frame: Int) {
         let phase = frame % 12
         let breathe = phase < 6 ? 0 : 1
-        let tailLift = [0, 0, -1, -1, 0, 1, 1, 0, 0, -1, 0, 1][phase]
-        let sleepShift = phase < 6 ? 0 : 1
+        let tailLift = [0, -1, -2, -2, -1, 0, 1, 2, 1, 0, -1, 0][phase]
+        let sleepShift = phase < 6 ? 0 : 2
 
-        rect(8, 11, 15, 7 + breathe, outline)
-        rect(9, 10, 13, 8 + breathe, outline)
-        rect(10, 11, 11, 6 + breathe, fur)
-        rect(12, 12, 7, 4 + breathe, furLight)
-        rect(14, 14, 3, 2, cream)
+        rect(9, 12, 16, 7 + breathe, outline)
+        rect(10, 11, 14, 8 + breathe, outline)
+        rect(11, 12, 12, 6 + breathe, fur)
+        rect(13, 13, 8, 4 + breathe, furLight)
+        rect(16, 15, 3, 2, mid)
 
-        rect(4, 8, 9, 8, outline)
-        rect(5, 9, 7, 6, fur)
-        rect(5, 7, 2, 3, outline)
-        rect(10, 7, 2, 3, outline)
-        rect(6, 10, 5, 3, furLight)
-        rect(7, 11, 1, 1, outline)
-        rect(10, 11, 1, 1, outline)
+        rect(4, 8, 10, 8, outline)
+        rect(5, 9, 8, 6, fur)
+        rect(5, 6, 2, 4, outline)
+        rect(11, 6, 2, 4, outline)
+        rect(6, 10, 6, 3, furLight)
+        rect(7, 11, 2, 1, outline)
+        rect(11, 11, 2, 1, outline)
 
-        rect(20, 13 + tailLift, 5, 3, outline)
-        rect(21, 14 + tailLift, 4, 1, furDark)
-        rect(18, 15 + tailLift, 4, 2, outline)
-        rect(18, 15 + tailLift, 3, 1, fur)
+        rect(22, 13 + tailLift, 7, 3, outline)
+        rect(23, 14 + tailLift, 5, 1, furDark)
+        rect(19, 15 + tailLift, 5, 2, outline)
+        rect(20, 15 + tailLift, 3, 1, fur)
 
         if phase < 6 {
-            rect(23 + sleepShift, 4, 2, 1, sleep)
-            rect(24 + sleepShift, 3, 2, 1, sleep)
-            rect(23 + sleepShift, 2, 3, 1, sleep)
+            rect(27 + sleepShift, 4, 2, 1, signal)
+            rect(28 + sleepShift, 3, 2, 1, signal)
+            rect(27 + sleepShift, 2, 4, 1, signal)
         } else {
-            rect(24 + sleepShift, 3, 2, 1, sleep)
-            rect(25 + sleepShift, 2, 2, 1, sleep)
-            rect(24 + sleepShift, 1, 3, 1, sleep)
+            rect(28 + sleepShift, 3, 2, 1, signal)
+            rect(30 + sleepShift, 2, 2, 1, signal)
+            rect(28 + sleepShift, 1, 4, 1, signal)
         }
     }
 
     private func drawReview(frame: Int) {
         let phase = frame % 4
-        let shake = [-2, 1, 2, -1][phase]
-        let bob = [0, -1, 0, 1][phase]
+        let shake = [-3, 2, 3, -2][phase]
+        let bob = [0, -2, 0, 2][phase]
         let markShift = [0, 1, 0, -1][phase]
 
-        drawBody(x: 9 + shake, y: 9 + bob)
+        drawBody(x: 10 + shake, y: 9 + bob, stretch: 0)
         drawHead(x: 4 + shake, y: 4 + bob, blink: false, surprised: true)
-        drawTail(baseX: 22 + shake, baseY: 11 + bob, phase: phase)
+        drawTail(baseX: 25 + shake, baseY: 11 + bob, phase: phase, wild: true)
 
-        rect(25 + markShift, 2 + bob, 2, 10, alert)
-        rect(25 + markShift, 14 + bob, 2, 2, alert)
-        rect(14 + shake, 17 + bob, 3, 2, outline)
-        rect(20 + shake, 17 + bob, 3, 2, outline)
+        rect(29 + markShift, 1 + bob, 2, 11, signal)
+        rect(29 + markShift, 14 + bob, 2, 2, signal)
+        rect(14 + shake, 18 + bob, 4, 2, outline)
+        rect(22 + shake, 18 + bob, 4, 2, outline)
     }
 
     private func drawHead(x: Int, y: Int, blink: Bool, surprised: Bool) {
@@ -258,7 +258,7 @@ final class AnimatedCatSprite {
         rect(x + 2, y + 1, 2, 3, outline)
         rect(x + 7, y + 1, 2, 3, outline)
         rect(x + 3, y + 4, 5, 2, furLight)
-        rect(x + 5, y + 6, 1, 1, cream)
+        rect(x + 5, y + 6, 1, 1, mid)
 
         if blink {
             rect(x + 3, y + 5, 2, 1, outline)
@@ -266,7 +266,7 @@ final class AnimatedCatSprite {
         } else if surprised {
             rect(x + 3, y + 5, 2, 2, eye)
             rect(x + 7, y + 5, 2, 2, eye)
-            rect(x + 5, y + 8, 2, 2, alert)
+            rect(x + 5, y + 8, 2, 2, signal)
         } else {
             rect(x + 3, y + 5, 1, 2, eye)
             rect(x + 7, y + 5, 1, 2, eye)
@@ -274,21 +274,23 @@ final class AnimatedCatSprite {
         }
     }
 
-    private func drawBody(x: Int, y: Int) {
-        rect(x + 1, y + 1, 15, 7, outline)
-        rect(x, y + 3, 17, 4, outline)
-        rect(x + 2, y + 2, 13, 5, fur)
-        rect(x + 5, y + 3, 6, 3, furLight)
-        rect(x + 3, y + 2, 2, 1, cream)
-        rect(x + 12, y + 2, 2, 1, furDark)
+    private func drawBody(x: Int, y: Int, stretch: Int) {
+        rect(x + 1, y + 1, 15 + stretch, 7, outline)
+        rect(x, y + 3, 17 + stretch, 4, outline)
+        rect(x + 2, y + 2, 13 + stretch, 5, fur)
+        rect(x + 5, y + 3, 7 + stretch, 3, furLight)
+        rect(x + 4, y + 2, 2, 1, mid)
+        rect(x + 13 + stretch, y + 2, 2, 1, furDark)
     }
 
-    private func drawTail(baseX: Int, baseY: Int, phase: Int) {
-        let lift = [1, 0, -1, -2, -1, 0, 1, 0][phase % 8]
-        rect(baseX, baseY + 2 + lift, 5, 2, outline)
-        rect(baseX + 3, baseY + lift, 2, 4, outline)
-        rect(baseX + 1, baseY + 3 + lift, 4, 1, furDark)
-        rect(baseX + 4, baseY + 1 + lift, 1, 3, fur)
+    private func drawTail(baseX: Int, baseY: Int, phase: Int, wild: Bool) {
+        let lift = wild
+            ? [3, 1, -2, -4, -2, 1, 3, 2][phase % 8]
+            : [1, 0, -1, -2, -1, 0, 1, 0][phase % 8]
+        rect(baseX, baseY + 2 + lift, 6, 2, outline)
+        rect(baseX + 4, baseY - 1 + lift, 2, 5, outline)
+        rect(baseX + 1, baseY + 3 + lift, 5, 1, furDark)
+        rect(baseX + 5, baseY + lift, 1, 4, fur)
     }
 
     private func rect(_ x: Int, _ yFromTop: Int, _ w: Int, _ h: Int, _ color: NSColor) {
@@ -303,16 +305,16 @@ final class AnimatedCatSprite {
 }
 
 final class PixelStatusBadge {
-    private let width = 46
+    private let width = 50
     private let height = 24
     private let cat = AnimatedCatSprite()
 
-    private let outline = NSColor(calibratedWhite: 0.08, alpha: 1)
-    private let shell = NSColor(calibratedRed: 1.00, green: 0.84, blue: 0.52, alpha: 1)
-    private let low = NSColor(calibratedRed: 1.00, green: 0.12, blue: 0.16, alpha: 1)
-    private let mid = NSColor(calibratedRed: 1.00, green: 0.58, blue: 0.12, alpha: 1)
-    private let high = NSColor(calibratedRed: 0.12, green: 0.82, blue: 0.36, alpha: 1)
-    private let shine = NSColor(calibratedRed: 1.00, green: 0.95, blue: 0.74, alpha: 1)
+    private let outline = NSColor(calibratedWhite: 0.04, alpha: 1)
+    private let shell = NSColor(calibratedWhite: 0.82, alpha: 1)
+    private let well = NSColor(calibratedWhite: 0.18, alpha: 1)
+    private let fill = NSColor(calibratedWhite: 0.96, alpha: 1)
+    private let dimFill = NSColor(calibratedWhite: 0.62, alpha: 1)
+    private let shine = NSColor.white
 
     func image(state: CatState, frame: Int, tokenUsage: TokenUsageSnapshot) -> NSImage {
         let image = NSImage(size: NSSize(width: width, height: height))
@@ -325,21 +327,21 @@ final class PixelStatusBadge {
         NSRect(x: 0, y: 0, width: width, height: height).fill()
 
         cat.image(state: state, frame: frame).draw(
-            in: NSRect(x: 0, y: 1, width: 30, height: 22),
+            in: NSRect(x: 0, y: 0, width: 34, height: 24),
             from: .zero,
             operation: .sourceOver,
             fraction: 1
         )
-        drawBattery(percent: tokenUsage.menuBarQuotaPercent)
+        drawBattery(percent: tokenUsage.menuBarQuotaPercent, frame: frame)
 
         image.unlockFocus()
         return image
     }
 
-    private func drawBattery(percent: Double?) {
-        let x = 34
+    private func drawBattery(percent: Double?, frame: Int) {
+        let x = 38
         let y = 3
-        let bodyWidth = 10
+        let bodyWidth = 9
         let bodyHeight = 18
         let hasKnownPercent = percent != nil
         let clamped = min(100, max(0, percent ?? 0))
@@ -348,20 +350,27 @@ final class PixelStatusBadge {
         if hasKnownPercent, clamped <= 5 {
             fillHeight = 2
         }
-        let fillColor = clamped < 20 ? low : (clamped < 45 ? mid : high)
+        let pulse = frame % 8 < 4
+        let fillColor = clamped < 20 && pulse ? fill : (clamped < 45 ? dimFill : fill)
+        let outlineColor = clamped < 20 && pulse ? shine : outline
 
-        rect(x + 3, y - 2, 4, 2, outline)
-        rect(x, y, bodyWidth, bodyHeight, outline)
+        rect(x + 3, y - 2, 3, 2, outlineColor)
+        rect(x, y, bodyWidth, bodyHeight, outlineColor)
         rect(x + 1, y + 1, bodyWidth - 2, bodyHeight - 2, shell)
+        rect(x + 2, y + 2, bodyWidth - 4, bodyHeight - 4, well)
 
         if fillHeight > 0 {
             let fillY = y + bodyHeight - 2 - fillHeight
             rect(x + 2, fillY, bodyWidth - 4, fillHeight, fillColor)
-            rect(x + 3, fillY, 1, max(1, fillHeight - 1), shine.withAlphaComponent(0.42))
+            let scanOffset = frame % max(1, innerHeight)
+            let scanY = y + bodyHeight - 3 - scanOffset
+            if scanY >= fillY, scanY < y + bodyHeight - 2 {
+                rect(x + 3, scanY, bodyWidth - 6, 1, shine.withAlphaComponent(0.7))
+            }
         }
 
         for tick in stride(from: y + 6, through: y + bodyHeight - 6, by: 5) {
-            rect(x + 2, tick, bodyWidth - 4, 1, outline.withAlphaComponent(0.22))
+            rect(x + 2, tick, bodyWidth - 4, 1, outline.withAlphaComponent(0.38))
         }
     }
 
@@ -863,7 +872,7 @@ final class TokenDetailsPanel: NSView {
     }
 
     override var intrinsicContentSize: NSSize {
-        NSSize(width: 336, height: 218)
+        NSSize(width: 336, height: 224)
     }
 
     override init(frame frameRect: NSRect) {
@@ -888,13 +897,13 @@ final class TokenDetailsPanel: NSView {
         }
 
         let token = snapshot.tokenUsage
-        drawText("Codex Cat", x: 24, y: 20, size: 17, weight: .semibold, color: palette.primaryText)
-        drawStatusPill(snapshot.state.rawValue.uppercased(), x: 238, y: 18, width: 74, state: snapshot.state)
+        drawText("Codex Cat", x: 24, y: 22, size: 17, weight: .semibold, color: palette.primaryText)
+        drawStatusPill(snapshot.state.rawValue.uppercased(), x: 242, y: 20, width: 68, state: snapshot.state)
 
         drawText(
             "conv \(snapshot.activeConversation)  ·  pending \(snapshot.pendingCalls)  ·  review \(snapshot.reviewSignals)",
             x: 24,
-            y: 48,
+            y: 51,
             size: 11,
             color: palette.secondaryText
         )
@@ -903,19 +912,19 @@ final class TokenDetailsPanel: NSView {
             title: "5h quota",
             percent: token.primaryLimit?.remainingPercent,
             detail: resetDetail(token.primaryLimit),
-            y: 74
+            y: 79
         )
         drawQuotaRow(
             title: "7d quota",
             percent: token.secondaryLimit?.remainingPercent,
             detail: resetDetail(token.secondaryLimit),
-            y: 126
+            y: 135
         )
 
         drawText(
             "Local quota estimate · may differ from Codex UI",
             x: 24,
-            y: 184,
+            y: 193,
             size: 10,
             color: palette.tertiaryText
         )
@@ -963,9 +972,9 @@ final class TokenDetailsPanel: NSView {
         let x = 24
         let width = Int(bounds.width) - 48
         drawText(title, x: x, y: y, size: 12, weight: .medium, color: palette.primaryText)
-        drawRightText(formatPercent(percent ?? 0), right: 24, y: y - 2, size: 18, weight: .semibold, color: palette.primaryText)
-        drawBar(percent: percent, x: x, y: y + 26, width: width, height: 9, color: color(for: percent))
-        drawText(detail, x: x, y: y + 42, size: 10, color: palette.secondaryText)
+        drawRightText(formatPercent(percent ?? 0), right: 24, y: y - 1, size: 16, weight: .semibold, color: palette.primaryText)
+        drawBar(percent: percent, x: x, y: y + 25, width: width, height: 8, color: color(for: percent))
+        drawText(detail, x: x, y: y + 40, size: 9.5, color: palette.secondaryText)
     }
 
     private func drawBar(percent: Double?, x: Int, y: Int, width: Int, height: Int, color: NSColor) {
@@ -993,18 +1002,18 @@ final class TokenDetailsPanel: NSView {
 
     private func drawStatusPill(_ text: String, x: Int, y: Int, width: Int, state: CatState) {
         let color = stateColor(state)
-        let rect = rectFromTop(x: x, y: y, width: width, height: 24)
+        let rect = rectFromTop(x: x, y: y, width: width, height: 22)
         color.withAlphaComponent(palette.isDark ? 0.22 : 0.14).setFill()
-        NSBezierPath(roundedRect: rect, xRadius: 12, yRadius: 12).fill()
+        NSBezierPath(roundedRect: rect, xRadius: 11, yRadius: 11).fill()
         color.withAlphaComponent(0.42).setStroke()
-        let outline = NSBezierPath(roundedRect: rect, xRadius: 12, yRadius: 12)
+        let outline = NSBezierPath(roundedRect: rect, xRadius: 11, yRadius: 11)
         outline.lineWidth = 1
         outline.stroke()
 
-        let dot = rectFromTop(x: x + 10, y: y + 8, width: 8, height: 8)
+        let dot = rectFromTop(x: x + 10, y: y + 8, width: 7, height: 7)
         color.setFill()
         NSBezierPath(ovalIn: dot).fill()
-        drawText(text, x: x + 24, y: y + 6, size: 10, weight: .semibold, color: palette.primaryText)
+        drawText(text, x: x + 23, y: y + 6, size: 9.5, weight: .semibold, color: palette.primaryText)
     }
 
     private func drawQuitButton() {
@@ -1094,7 +1103,7 @@ final class TokenDetailsPanel: NSView {
     }
 
     private var quitButtonRect: NSRect {
-        rectFromTop(x: Int(bounds.width) - 76, y: 176, width: 52, height: 24)
+        rectFromTop(x: Int(bounds.width) - 76, y: 188, width: 52, height: 24)
     }
 
     private func rectFromTop(x: Int, y: Int, width: Int, height: Int) -> NSRect {
@@ -1167,7 +1176,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var menuCloseTimer: Timer?
     private var menuMouseOutsideSince: Date?
     private let menuAutoCloseDelay: TimeInterval = 1.5
-    private let detailsPanel = TokenDetailsPanel(frame: NSRect(x: 0, y: 0, width: 340, height: 230))
+    private let detailsPanel = TokenDetailsPanel(frame: NSRect(x: 0, y: 0, width: 336, height: 224))
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)

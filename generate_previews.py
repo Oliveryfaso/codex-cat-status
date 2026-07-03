@@ -3,18 +3,17 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-WIDTH = 30
-HEIGHT = 22
+WIDTH = 34
+HEIGHT = 24
 SCALE = 8
 
-OUTLINE = (20, 20, 20, 255)
-FUR = (235, 128, 51, 255)
-FUR_LIGHT = (255, 179, 92, 255)
-FUR_DARK = (148, 69, 31, 255)
-CREAM = (255, 219, 148, 255)
-EYE = (56, 235, 138, 255)
-ALERT = (255, 46, 51, 255)
-SLEEP = (64, 140, 255, 255)
+OUTLINE = (10, 10, 10, 255)
+FUR = (230, 230, 230, 255)
+FUR_LIGHT = (255, 255, 255, 255)
+FUR_DARK = (92, 92, 92, 255)
+MID = (174, 174, 174, 255)
+EYE = (8, 8, 8, 255)
+SIGNAL = (242, 242, 242, 255)
 TRANSPARENT = (0, 0, 0, 0)
 
 
@@ -24,6 +23,8 @@ class Sprite:
         self.draw = ImageDraw.Draw(self.img)
 
     def rect(self, x, y_from_top, w, h, color):
+        if w <= 0 or h <= 0:
+            return
         self.draw.rectangle(
             [x, y_from_top, x + w - 1, y_from_top + h - 1],
             fill=color,
@@ -35,7 +36,7 @@ class Sprite:
         self.rect(x + 2, y + 1, 2, 3, OUTLINE)
         self.rect(x + 7, y + 1, 2, 3, OUTLINE)
         self.rect(x + 3, y + 4, 5, 2, FUR_LIGHT)
-        self.rect(x + 5, y + 6, 1, 1, CREAM)
+        self.rect(x + 5, y + 6, 1, 1, MID)
 
         if blink:
             self.rect(x + 3, y + 5, 2, 1, OUTLINE)
@@ -43,87 +44,88 @@ class Sprite:
         elif surprised:
             self.rect(x + 3, y + 5, 2, 2, EYE)
             self.rect(x + 7, y + 5, 2, 2, EYE)
-            self.rect(x + 5, y + 8, 2, 2, ALERT)
+            self.rect(x + 5, y + 8, 2, 2, SIGNAL)
         else:
             self.rect(x + 3, y + 5, 1, 2, EYE)
             self.rect(x + 7, y + 5, 1, 2, EYE)
             self.rect(x + 5, y + 8, 2, 1, OUTLINE)
 
-    def draw_body(self, x, y):
-        self.rect(x + 1, y + 1, 15, 7, OUTLINE)
-        self.rect(x, y + 3, 17, 4, OUTLINE)
-        self.rect(x + 2, y + 2, 13, 5, FUR)
-        self.rect(x + 5, y + 3, 6, 3, FUR_LIGHT)
-        self.rect(x + 3, y + 2, 2, 1, CREAM)
-        self.rect(x + 12, y + 2, 2, 1, FUR_DARK)
+    def draw_body(self, x, y, stretch=0):
+        self.rect(x + 1, y + 1, 15 + stretch, 7, OUTLINE)
+        self.rect(x, y + 3, 17 + stretch, 4, OUTLINE)
+        self.rect(x + 2, y + 2, 13 + stretch, 5, FUR)
+        self.rect(x + 5, y + 3, 7 + stretch, 3, FUR_LIGHT)
+        self.rect(x + 4, y + 2, 2, 1, MID)
+        self.rect(x + 13 + stretch, y + 2, 2, 1, FUR_DARK)
 
-    def draw_tail(self, base_x, base_y, phase):
-        lift = [1, 0, -1, -2, -1, 0, 1, 0][phase % 8]
-        self.rect(base_x, base_y + 2 + lift, 5, 2, OUTLINE)
-        self.rect(base_x + 3, base_y + lift, 2, 4, OUTLINE)
-        self.rect(base_x + 1, base_y + 3 + lift, 4, 1, FUR_DARK)
-        self.rect(base_x + 4, base_y + 1 + lift, 1, 3, FUR)
+    def draw_tail(self, base_x, base_y, phase, wild=False):
+        lift = ([3, 1, -2, -4, -2, 1, 3, 2] if wild else [1, 0, -1, -2, -1, 0, 1, 0])[phase % 8]
+        self.rect(base_x, base_y + 2 + lift, 6, 2, OUTLINE)
+        self.rect(base_x + 4, base_y - 1 + lift, 2, 5, OUTLINE)
+        self.rect(base_x + 1, base_y + 3 + lift, 5, 1, FUR_DARK)
+        self.rect(base_x + 5, base_y + lift, 1, 4, FUR)
 
     def running(self, frame):
         phase = frame % 8
-        bob = [1, 0, -1, -2, -1, 0, 1, 0][phase]
-        lean = [0, 1, 1, 0, -1, -1, 0, 1][phase]
-        front_leg = [2, 1, 0, -1, -2, -1, 0, 1][phase]
-        back_leg = [-2, -1, 0, 1, 2, 1, 0, -1][phase]
-        front_drop = [1, 0, 0, 0, 1, 1, 0, 0][phase]
-        back_drop = [0, 1, 1, 0, 0, 0, 1, 1][phase]
-        self.draw_tail(22 + lean, 10 + bob, phase)
-        self.draw_body(8 + lean, 8 + bob)
-        self.draw_head(3 + lean, 5 + bob)
-        self.rect(11 + lean + front_leg, 17 + bob + front_drop, 3, 2, OUTLINE)
-        self.rect(12 + lean + front_leg, 16 + bob + front_drop, 2, 2, FUR_DARK)
-        self.rect(20 + lean + back_leg, 17 + bob + back_drop, 3, 2, OUTLINE)
-        self.rect(21 + lean + back_leg, 16 + bob + back_drop, 2, 2, FUR_DARK)
-        self.rect(14 + lean, 10 + bob, 2, 1, FUR_LIGHT)
-        self.rect(18 + lean, 10 + bob, 2, 1, FUR_LIGHT)
+        bob = [2, 0, -2, -3, -1, 1, 3, 1][phase]
+        lean = [-1, 1, 2, 1, -1, -2, -1, 0][phase]
+        stretch = [0, 1, 2, 1, 0, 1, 2, 1][phase]
+        front_leg = [4, 2, 0, -3, -5, -2, 1, 3][phase]
+        back_leg = [-5, -2, 1, 4, 5, 2, -1, -4][phase]
+        front_drop = [2, 1, 0, 0, 1, 2, 2, 1][phase]
+        back_drop = [0, 1, 2, 2, 1, 0, 0, 1][phase]
+        self.draw_tail(25 + lean, 10 + bob, phase, wild=True)
+        self.draw_body(9 + lean, 8 + bob, stretch)
+        self.draw_head(3 + lean, 4 + bob)
+        self.rect(12 + lean + front_leg, 18 + bob + front_drop, 5, 2, OUTLINE)
+        self.rect(13 + lean + front_leg, 17 + bob + front_drop, 3, 2, FUR_DARK)
+        self.rect(22 + lean + back_leg, 18 + bob + back_drop, 5, 2, OUTLINE)
+        self.rect(23 + lean + back_leg, 17 + bob + back_drop, 3, 2, FUR_DARK)
+        self.rect(0, 21, 3, 1, (174, 174, 174, 190 if phase % 2 == 0 else 90))
+        self.rect(3, 20, 4, 1, (174, 174, 174, 140 if phase % 2 == 0 else 50))
 
     def idle(self, frame):
         phase = frame % 12
         breathe = 0 if phase < 6 else 1
-        tail_lift = [0, 0, -1, -1, 0, 1, 1, 0, 0, -1, 0, 1][phase]
-        sleep_shift = 0 if phase < 6 else 1
-        self.rect(8, 11, 15, 7 + breathe, OUTLINE)
-        self.rect(9, 10, 13, 8 + breathe, OUTLINE)
-        self.rect(10, 11, 11, 6 + breathe, FUR)
-        self.rect(12, 12, 7, 4 + breathe, FUR_LIGHT)
-        self.rect(14, 14, 3, 2, CREAM)
-        self.rect(4, 8, 9, 8, OUTLINE)
-        self.rect(5, 9, 7, 6, FUR)
-        self.rect(5, 7, 2, 3, OUTLINE)
-        self.rect(10, 7, 2, 3, OUTLINE)
-        self.rect(6, 10, 5, 3, FUR_LIGHT)
-        self.rect(7, 11, 1, 1, OUTLINE)
-        self.rect(10, 11, 1, 1, OUTLINE)
-        self.rect(20, 13 + tail_lift, 5, 3, OUTLINE)
-        self.rect(21, 14 + tail_lift, 4, 1, FUR_DARK)
-        self.rect(18, 15 + tail_lift, 4, 2, OUTLINE)
-        self.rect(18, 15 + tail_lift, 3, 1, FUR)
+        tail_lift = [0, -1, -2, -2, -1, 0, 1, 2, 1, 0, -1, 0][phase]
+        sleep_shift = 0 if phase < 6 else 2
+        self.rect(9, 12, 16, 7 + breathe, OUTLINE)
+        self.rect(10, 11, 14, 8 + breathe, OUTLINE)
+        self.rect(11, 12, 12, 6 + breathe, FUR)
+        self.rect(13, 13, 8, 4 + breathe, FUR_LIGHT)
+        self.rect(16, 15, 3, 2, MID)
+        self.rect(4, 8, 10, 8, OUTLINE)
+        self.rect(5, 9, 8, 6, FUR)
+        self.rect(5, 6, 2, 4, OUTLINE)
+        self.rect(11, 6, 2, 4, OUTLINE)
+        self.rect(6, 10, 6, 3, FUR_LIGHT)
+        self.rect(7, 11, 2, 1, OUTLINE)
+        self.rect(11, 11, 2, 1, OUTLINE)
+        self.rect(22, 13 + tail_lift, 7, 3, OUTLINE)
+        self.rect(23, 14 + tail_lift, 5, 1, FUR_DARK)
+        self.rect(19, 15 + tail_lift, 5, 2, OUTLINE)
+        self.rect(20, 15 + tail_lift, 3, 1, FUR)
         if phase < 6:
-            self.rect(23 + sleep_shift, 4, 2, 1, SLEEP)
-            self.rect(24 + sleep_shift, 3, 2, 1, SLEEP)
-            self.rect(23 + sleep_shift, 2, 3, 1, SLEEP)
+            self.rect(27 + sleep_shift, 4, 2, 1, SIGNAL)
+            self.rect(28 + sleep_shift, 3, 2, 1, SIGNAL)
+            self.rect(27 + sleep_shift, 2, 4, 1, SIGNAL)
         else:
-            self.rect(24 + sleep_shift, 3, 2, 1, SLEEP)
-            self.rect(25 + sleep_shift, 2, 2, 1, SLEEP)
-            self.rect(24 + sleep_shift, 1, 3, 1, SLEEP)
+            self.rect(28 + sleep_shift, 3, 2, 1, SIGNAL)
+            self.rect(30 + sleep_shift, 2, 2, 1, SIGNAL)
+            self.rect(28 + sleep_shift, 1, 4, 1, SIGNAL)
 
     def review(self, frame):
         phase = frame % 4
-        shake = [-2, 1, 2, -1][phase]
-        bob = [0, -1, 0, 1][phase]
+        shake = [-3, 2, 3, -2][phase]
+        bob = [0, -2, 0, 2][phase]
         mark_shift = [0, 1, 0, -1][phase]
-        self.draw_body(9 + shake, 9 + bob)
+        self.draw_body(10 + shake, 9 + bob)
         self.draw_head(4 + shake, 4 + bob, surprised=True)
-        self.draw_tail(22 + shake, 11 + bob, phase)
-        self.rect(25 + mark_shift, 2 + bob, 2, 10, ALERT)
-        self.rect(25 + mark_shift, 14 + bob, 2, 2, ALERT)
-        self.rect(14 + shake, 17 + bob, 3, 2, OUTLINE)
-        self.rect(20 + shake, 17 + bob, 3, 2, OUTLINE)
+        self.draw_tail(25 + shake, 11 + bob, phase, wild=True)
+        self.rect(29 + mark_shift, 1 + bob, 2, 11, SIGNAL)
+        self.rect(29 + mark_shift, 14 + bob, 2, 2, SIGNAL)
+        self.rect(14 + shake, 18 + bob, 4, 2, OUTLINE)
+        self.rect(22 + shake, 18 + bob, 4, 2, OUTLINE)
 
 
 def frame(state, n):
