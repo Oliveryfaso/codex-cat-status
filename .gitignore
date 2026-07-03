@@ -1,0 +1,6 @@
+.DS_Store
+._*
+.build/
+CodexCatStatus.app/
+*.stdout
+*.log
