@@ -35,7 +35,7 @@ The alert state intentionally avoids broad text matching. It only appears when t
 
 The indicator next to the cat is the estimated remaining context window for the latest observed Codex turn, based on Codex `token_count` events:
 
-- Menu bar: pixel-art vertical battery with a context percentage next to the cat.
+- Menu bar: pixel-art vertical battery next to the cat, without extra status text.
 - Tooltip: current turn tokens, locally observed today/week token totals, and 5-hour/7-day quota windows with battery-style percentage bars when Codex reports them.
 - Menu: a custom pixel-style detail panel with status signals, context estimate, quota bars, and observed token totals.
 

@@ -316,7 +316,7 @@ final class AnimatedCatSprite {
 }
 
 final class PixelStatusBadge {
-    private let width = 58
+    private let width = 46
     private let height = 24
     private let cat = AnimatedCatSprite()
 
@@ -344,7 +344,6 @@ final class PixelStatusBadge {
             fraction: 1
         )
         drawBattery(percent: tokenUsage.remainingContextPercent)
-        drawPercent(percent: tokenUsage.remainingContextPercent)
 
         image.unlockFocus()
         return image
@@ -373,15 +372,6 @@ final class PixelStatusBadge {
         for tick in stride(from: y + 6, through: y + bodyHeight - 6, by: 5) {
             rect(x + 2, tick, bodyWidth - 4, 1, outline.withAlphaComponent(0.22))
         }
-    }
-
-    private func drawPercent(percent: Double?) {
-        let text = percent.map { "\(Int(min(100, max(0, $0)).rounded()))%" } ?? "--"
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 8.5, weight: .bold),
-            .foregroundColor: NSColor(calibratedWhite: 0.08, alpha: 1)
-        ]
-        text.draw(at: NSPoint(x: 45, y: 7), withAttributes: attributes)
     }
 
     private func rect(_ x: Int, _ yFromTop: Int, _ w: Int, _ h: Int, _ color: NSColor) {
@@ -861,7 +851,7 @@ final class TokenDetailsPanel: NSView {
     }
 
     override var intrinsicContentSize: NSSize {
-        NSSize(width: 320, height: 210)
+        NSSize(width: 340, height: 282)
     }
 
     override init(frame frameRect: NSRect) {
@@ -877,91 +867,104 @@ final class TokenDetailsPanel: NSView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
-        NSGraphicsContext.current?.shouldAntialias = false
+        NSGraphicsContext.current?.shouldAntialias = true
         drawPanelBackground()
 
         guard let snapshot else {
-            drawText("Reading ~/.codex status", x: 16, y: 18, size: 12, weight: .semibold)
+            drawText("Reading ~/.codex status", x: 18, y: 20, size: 12, weight: .semibold)
             return
         }
 
         let token = snapshot.tokenUsage
-        drawText("Codex Cat Status", x: 16, y: 14, size: 13, weight: .bold)
-        drawPill(snapshot.state.rawValue.uppercased(), x: 214, y: 11, color: stateColor(snapshot.state))
+        drawText("Codex Cat Status", x: 18, y: 18, size: 14, weight: .bold)
+        drawPill(snapshot.state.rawValue.uppercased(), x: 242, y: 15, color: stateColor(snapshot.state))
 
         drawText(
-            "conversation \(snapshot.activeConversation)  pending \(snapshot.pendingCalls)  jobs \(snapshot.runningJobs)  review \(snapshot.reviewSignals)",
-            x: 16,
-            y: 38,
+            "conv \(snapshot.activeConversation)  pending \(snapshot.pendingCalls)  jobs \(snapshot.runningJobs)  review \(snapshot.reviewSignals)",
+            x: 18,
+            y: 45,
             size: 10,
             color: NSColor(calibratedWhite: 0.26, alpha: 1)
+        )
+        drawText(
+            "Local estimates from Codex session logs",
+            x: 18,
+            y: 64,
+            size: 9,
+            color: NSColor(calibratedWhite: 0.42, alpha: 1)
         )
 
         drawProgressRow(
             title: "Context estimate",
             percent: token.remainingContextPercent,
             detail: contextDetail(token),
-            x: 16,
-            y: 64,
-            width: 288,
+            x: 18,
+            y: 86,
+            width: 304,
             color: color(for: token.remainingContextPercent)
         )
         drawProgressRow(
             title: "5h quota window",
             percent: token.primaryLimit?.remainingPercent,
             detail: resetDetail(token.primaryLimit),
-            x: 16,
-            y: 108,
-            width: 288,
+            x: 18,
+            y: 139,
+            width: 304,
             color: color(for: token.primaryLimit?.remainingPercent)
         )
         drawProgressRow(
             title: "7d quota window",
             percent: token.secondaryLimit?.remainingPercent,
             detail: resetDetail(token.secondaryLimit),
-            x: 16,
-            y: 152,
-            width: 288,
+            x: 18,
+            y: 192,
+            width: 304,
             color: color(for: token.secondaryLimit?.remainingPercent)
         )
 
         drawText(
             "Turn \(formatCompact(token.currentTotalTokens ?? 0))  Today \(formatCompact(token.observedTodayTokens))  Week \(formatCompact(token.observedWeekTokens))",
-            x: 16,
-            y: 192,
+            x: 18,
+            y: 241,
             size: 10,
             color: NSColor(calibratedWhite: 0.20, alpha: 1)
         )
     }
 
     private func drawPanelBackground() {
-        let bg = NSColor(calibratedRed: 1.00, green: 0.94, blue: 0.82, alpha: 1)
+        let bg = NSColor(calibratedRed: 1.00, green: 0.96, blue: 0.86, alpha: 1)
+        let paper = NSColor(calibratedRed: 1.00, green: 0.91, blue: 0.66, alpha: 1)
         let shadow = NSColor(calibratedWhite: 0.08, alpha: 1)
         let edge = NSColor(calibratedRed: 0.58, green: 0.27, blue: 0.12, alpha: 1)
+        let trim = NSColor(calibratedRed: 1.00, green: 0.77, blue: 0.35, alpha: 1)
 
         bg.setFill()
         bounds.fill()
         rect(8, 8, Int(bounds.width) - 16, Int(bounds.height) - 16, shadow)
         rect(10, 10, Int(bounds.width) - 20, Int(bounds.height) - 20, edge)
-        rect(12, 12, Int(bounds.width) - 24, Int(bounds.height) - 24, bg)
+        rect(14, 14, Int(bounds.width) - 28, Int(bounds.height) - 28, paper)
+        rect(18, 18, Int(bounds.width) - 36, 4, trim)
+        rect(18, Int(bounds.height) - 24, Int(bounds.width) - 36, 4, trim)
     }
 
     private func drawProgressRow(title: String, percent: Double?, detail: String, x: Int, y: Int, width: Int, color: NSColor) {
-        drawText(title, x: x, y: y, size: 10.5, weight: .semibold)
-        drawText(formatPercent(percent ?? 0), x: x + width - 42, y: y, size: 10.5, weight: .bold)
-        drawBar(percent: percent, x: x, y: y + 18, width: width, height: 13, color: color)
-        drawText(detail, x: x, y: y + 34, size: 9, color: NSColor(calibratedWhite: 0.34, alpha: 1))
+        drawText(title, x: x, y: y, size: 11, weight: .semibold)
+        drawText(formatPercent(percent ?? 0), x: x + width - 42, y: y, size: 11, weight: .bold)
+        drawBar(percent: percent, x: x, y: y + 19, width: width, height: 15, color: color)
+        drawText(detail, x: x, y: y + 38, size: 9, color: NSColor(calibratedWhite: 0.33, alpha: 1))
     }
 
     private func drawBar(percent: Double?, x: Int, y: Int, width: Int, height: Int, color: NSColor) {
         let outline = NSColor(calibratedWhite: 0.08, alpha: 1)
-        let shell = NSColor(calibratedRed: 1.00, green: 0.84, blue: 0.52, alpha: 1)
+        let shell = NSColor(calibratedRed: 1.00, green: 0.80, blue: 0.42, alpha: 1)
+        let well = NSColor(calibratedRed: 1.00, green: 0.94, blue: 0.72, alpha: 1)
         let shine = NSColor(calibratedRed: 1.00, green: 0.96, blue: 0.72, alpha: 1)
         let clamped = min(100, max(0, percent ?? 0))
         let fillWidth = Int((clamped / 100 * Double(width - 6)).rounded())
 
         rect(x, y, width, height, outline)
         rect(x + 1, y + 1, width - 2, height - 2, shell)
+        rect(x + 3, y + 3, width - 6, height - 6, well)
         if fillWidth > 0 {
             rect(x + 3, y + 3, fillWidth, height - 6, color)
             rect(x + 4, y + 3, max(1, fillWidth - 2), 2, shine.withAlphaComponent(0.36))
@@ -1000,7 +1003,7 @@ final class TokenDetailsPanel: NSView {
         let window = bucket.windowMinutes >= 1440
             ? "\(bucket.windowMinutes / 1440)d"
             : String(format: "%.0fh", Double(bucket.windowMinutes) / 60)
-        return "\(formatBattery(bucket.remainingPercent, width: 10, includePercent: false)) left in \(window), resets \(reset)"
+        return "Window \(window), resets \(reset)"
     }
 
     private func stateColor(_ state: CatState) -> NSColor {
@@ -1062,8 +1065,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var pollCount = 0
     private var lastSnapshot: StatusSnapshot?
     private var lastStatusPoll = Date.distantPast
-    private var statusMenuItem = NSMenuItem()
-    private let detailsPanel = TokenDetailsPanel(frame: NSRect(x: 0, y: 0, width: 320, height: 210))
+    private let detailsPanel = TokenDetailsPanel(frame: NSRect(x: 0, y: 0, width: 340, height: 282))
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -1079,8 +1081,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func configureMenu() {
         let menu = NSMenu()
 
-        statusMenuItem = NSMenuItem(title: "Codex: checking", action: nil, keyEquivalent: "")
-        menu.addItem(statusMenuItem)
         let detailsItem = NSMenuItem()
         detailsItem.view = detailsPanel
         menu.addItem(detailsItem)
@@ -1111,18 +1111,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         frame += 1
         statusItem.button?.image = icon.image(state: snapshot.state, frame: frame, tokenUsage: snapshot.tokenUsage)
         statusItem.button?.toolTip = tooltipText(for: snapshot)
-        statusMenuItem.title = "Codex: \(snapshot.state.rawValue)"
         if didPoll, pollCount.isMultiple(of: 10) {
             appendLog("state=\(snapshot.state.rawValue) conversation=\(snapshot.activeConversation) pending=\(snapshot.pendingCalls) jobs=\(snapshot.runningJobs) review=\(snapshot.reviewSignals) token=\(snapshot.tokenUsage.menuBarText)")
         }
 
-        let time = DateFormatter.localizedString(
-            from: snapshot.lastChecked,
-            dateStyle: .none,
-            timeStyle: .medium
-        )
         detailsPanel.snapshot = snapshot
-        statusMenuItem.title = "Codex Cat Status, \(time)"
     }
 
     private func tooltipText(for snapshot: StatusSnapshot) -> String {
