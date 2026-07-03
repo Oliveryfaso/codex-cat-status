@@ -138,23 +138,6 @@ func formatBattery(_ percent: Double?, width: Int = 10, includePercent: Bool = t
     return includePercent ? "\(bar) \(formatPercent(clamped))" : bar
 }
 
-func formatTokenBucket(_ bucket: TokenBucketSnapshot?) -> String {
-    guard let bucket else { return "unknown" }
-
-    let hours = Double(bucket.windowMinutes) / 60
-    let window = bucket.windowMinutes >= 1440
-        ? "\(bucket.windowMinutes / 1440)d"
-        : String(format: "%.0fh", hours)
-    let reset: String
-    if let resetsAt = bucket.resetsAt {
-        reset = DateFormatter.localizedString(from: resetsAt, dateStyle: .none, timeStyle: .short)
-    } else {
-        reset = "unknown"
-    }
-
-    return "\(formatBattery(bucket.remainingPercent)) left, \(formatPercent(bucket.usedPercent)) used in \(window), resets \(reset)"
-}
-
 final class AnimatedCatSprite {
     private let width = 30
     private let height = 22
@@ -1070,6 +1053,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var lastSnapshot: StatusSnapshot?
     private var lastStatusPoll = Date.distantPast
     private var isProbeRunning = false
+    private var menuCloseTimer: Timer?
+    private var menuMouseOutsideSince: Date?
+    private let menuAutoCloseDelay: TimeInterval = 1.5
     private let detailsPanel = TokenDetailsPanel(frame: NSRect(x: 0, y: 0, width: 340, height: 230))
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -1102,13 +1088,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.button?.title = ""
         statusItem.button?.imagePosition = .imageOnly
         statusItem.button?.imageScaling = .scaleProportionallyUpOrDown
+        statusItem.button?.toolTip = nil
     }
 
     func menuWillOpen(_ menu: NSMenu) {
         if let lastSnapshot {
             detailsPanel.snapshot = lastSnapshot
         }
+        startMenuAutoCloseTimer(for: menu)
         requestStatusPoll(force: true)
+    }
+
+    func menuDidClose(_ menu: NSMenu) {
+        stopMenuAutoCloseTimer()
     }
 
     private func updateStatus() {
@@ -1144,7 +1136,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func render(snapshot: StatusSnapshot, didPoll: Bool) {
         frame += 1
         statusItem.button?.image = icon.image(state: snapshot.state, frame: frame, tokenUsage: snapshot.tokenUsage)
-        statusItem.button?.toolTip = tooltipText(for: snapshot)
+        statusItem.button?.toolTip = nil
         if didPoll, pollCount.isMultiple(of: 10) {
             appendLog("state=\(snapshot.state.rawValue) conversation=\(snapshot.activeConversation) pending=\(snapshot.pendingCalls) jobs=\(snapshot.runningJobs) review=\(snapshot.reviewSignals) token=\(snapshot.tokenUsage.menuBarText)")
         }
@@ -1152,29 +1144,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         detailsPanel.snapshot = snapshot
     }
 
-    private func tooltipText(for snapshot: StatusSnapshot) -> String {
-        tooltipLines(for: snapshot).joined(separator: "\n")
+    private func startMenuAutoCloseTimer(for menu: NSMenu) {
+        stopMenuAutoCloseTimer()
+        menuMouseOutsideSince = nil
+
+        let closeTimer = Timer(timeInterval: 0.25, repeats: true) { [weak self, weak menu] _ in
+            guard let self, let menu else { return }
+            self.updateMenuAutoClose(menu: menu)
+        }
+        menuCloseTimer = closeTimer
+        RunLoop.main.add(closeTimer, forMode: .common)
     }
 
-    private func tooltipLines(for snapshot: StatusSnapshot) -> [String] {
-        let token = snapshot.tokenUsage
-        let context: String
-        if let remaining = token.remainingContextTokens,
-           let window = token.contextWindow,
-           let percent = token.remainingContextPercent {
-            context = "Context estimate: \(formatBattery(percent)) left (\(formatCompact(remaining)) / \(formatCompact(window)))"
-        } else {
-            context = "Context estimate: unknown"
+    private func stopMenuAutoCloseTimer() {
+        menuCloseTimer?.invalidate()
+        menuCloseTimer = nil
+        menuMouseOutsideSince = nil
+    }
+
+    private func updateMenuAutoClose(menu: NSMenu) {
+        guard let menuWindow = detailsPanel.window else { return }
+
+        let mouse = NSEvent.mouseLocation
+        let menuFrame = menuWindow.frame.insetBy(dx: -16, dy: -16)
+        let buttonFrame = statusButtonFrame()?.insetBy(dx: -12, dy: -12) ?? .zero
+
+        if menuFrame.contains(mouse) || buttonFrame.contains(mouse) {
+            menuMouseOutsideSince = nil
+            return
         }
 
-        return [
-            "Codex is \(snapshot.state.rawValue)",
-            "Signals: conversation \(snapshot.activeConversation), pending \(snapshot.pendingCalls), jobs \(snapshot.runningJobs), review \(snapshot.reviewSignals)",
-            context,
-            "Token totals are local estimates and may differ from Codex UI",
-            "5h quota window: \(formatTokenBucket(token.primaryLimit))",
-            "7d quota window: \(formatTokenBucket(token.secondaryLimit))"
-        ]
+        let now = Date()
+        if let outsideSince = menuMouseOutsideSince {
+            if now.timeIntervalSince(outsideSince) >= menuAutoCloseDelay {
+                menu.cancelTracking()
+                stopMenuAutoCloseTimer()
+            }
+        } else {
+            menuMouseOutsideSince = now
+        }
+    }
+
+    private func statusButtonFrame() -> NSRect? {
+        guard let button = statusItem.button,
+              let window = button.window
+        else {
+            return nil
+        }
+
+        let frameInWindow = button.convert(button.bounds, to: nil)
+        return window.convertToScreen(frameInWindow)
     }
 
     @objc private func quit() {
