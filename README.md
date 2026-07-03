@@ -36,7 +36,7 @@ The alert state intentionally avoids broad text matching. It only appears when t
 The indicator next to the cat is the estimated remaining 5-hour quota window from the latest observed Codex `token_count` event:
 
 - Menu bar: pixel-art vertical battery next to the cat, without extra status text.
-- Click menu: a custom pixel-style detail panel with status signals and quota bars.
+- Click menu: a compact macOS-style glass detail panel with status signals and quota bars.
 - Auto close: the detail panel closes shortly after the pointer leaves the menu and cat icon.
 
 This is local telemetry from `~/.codex/sessions`, not an official billing or quota API. Exact token totals can differ from Codex's own UI because Codex may display thread-specific live context, account-level limits, cached-token accounting, or server-side usage state that is not fully exposed in local session logs.
@@ -55,7 +55,7 @@ This creates `CodexCatStatus.app` in the project directory.
 open CodexCatStatus.app
 ```
 
-The cat appears in the macOS menu bar. Use the menu item `Quit Codex Cat` to stop it.
+The cat appears in the macOS menu bar. Click the cat to open the detail panel, then use the panel's `Quit` button to stop it.
 
 ## Generate Previews
 

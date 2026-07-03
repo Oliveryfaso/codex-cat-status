@@ -854,6 +854,8 @@ final class CodexStatusProbe {
 }
 
 final class TokenDetailsPanel: NSView {
+    var onQuit: (() -> Void)?
+
     var snapshot: StatusSnapshot? {
         didSet {
             needsDisplay = true
@@ -861,7 +863,7 @@ final class TokenDetailsPanel: NSView {
     }
 
     override var intrinsicContentSize: NSSize {
-        NSSize(width: 340, height: 230)
+        NSSize(width: 336, height: 218)
     }
 
     override init(frame frameRect: NSRect) {
@@ -881,109 +883,139 @@ final class TokenDetailsPanel: NSView {
         drawPanelBackground()
 
         guard let snapshot else {
-            drawText("Reading ~/.codex status", x: 18, y: 20, size: 12, weight: .semibold)
+            drawText("Reading Codex status", x: 24, y: 24, size: 14, weight: .semibold, color: palette.primaryText)
             return
         }
 
         let token = snapshot.tokenUsage
-        drawText("Codex Cat Status", x: 18, y: 18, size: 14, weight: .bold)
-        drawPill(snapshot.state.rawValue.uppercased(), x: 242, y: 15, color: stateColor(snapshot.state))
+        drawText("Codex Cat", x: 24, y: 20, size: 17, weight: .semibold, color: palette.primaryText)
+        drawStatusPill(snapshot.state.rawValue.uppercased(), x: 238, y: 18, width: 74, state: snapshot.state)
 
         drawText(
-            "conv \(snapshot.activeConversation)  pending \(snapshot.pendingCalls)  jobs \(snapshot.runningJobs)  review \(snapshot.reviewSignals)",
-            x: 18,
-            y: 45,
-            size: 10,
-            color: NSColor(calibratedWhite: 0.26, alpha: 1)
-        )
-        drawText(
-            "Local estimates from Codex session logs",
-            x: 18,
-            y: 64,
-            size: 9,
-            color: NSColor(calibratedWhite: 0.42, alpha: 1)
+            "conv \(snapshot.activeConversation)  ·  pending \(snapshot.pendingCalls)  ·  review \(snapshot.reviewSignals)",
+            x: 24,
+            y: 48,
+            size: 11,
+            color: palette.secondaryText
         )
 
-        drawProgressRow(
-            title: "5h quota remaining",
+        drawQuotaRow(
+            title: "5h quota",
             percent: token.primaryLimit?.remainingPercent,
             detail: resetDetail(token.primaryLimit),
-            x: 18,
-            y: 86,
-            width: 304,
-            color: color(for: token.primaryLimit?.remainingPercent)
+            y: 74
         )
-        drawProgressRow(
-            title: "7d quota remaining",
+        drawQuotaRow(
+            title: "7d quota",
             percent: token.secondaryLimit?.remainingPercent,
             detail: resetDetail(token.secondaryLimit),
-            x: 18,
-            y: 139,
-            width: 304,
-            color: color(for: token.secondaryLimit?.remainingPercent)
+            y: 126
         )
 
         drawText(
-            "Token totals may differ from Codex UI",
-            x: 18,
-            y: 188,
-            size: 9,
-            color: NSColor(calibratedWhite: 0.38, alpha: 1)
+            "Local quota estimate · may differ from Codex UI",
+            x: 24,
+            y: 184,
+            size: 10,
+            color: palette.tertiaryText
         )
+        drawQuitButton()
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        if quitButtonRect.contains(point) {
+            onQuit?()
+        } else {
+            super.mouseDown(with: event)
+        }
     }
 
     private func drawPanelBackground() {
-        let bg = NSColor(calibratedRed: 1.00, green: 0.96, blue: 0.86, alpha: 1)
-        let paper = NSColor(calibratedRed: 1.00, green: 0.91, blue: 0.66, alpha: 1)
-        let shadow = NSColor(calibratedWhite: 0.08, alpha: 1)
-        let edge = NSColor(calibratedRed: 0.58, green: 0.27, blue: 0.12, alpha: 1)
-        let trim = NSColor(calibratedRed: 1.00, green: 0.77, blue: 0.35, alpha: 1)
-
-        bg.setFill()
+        NSColor.clear.setFill()
         bounds.fill()
-        rect(8, 8, Int(bounds.width) - 16, Int(bounds.height) - 16, shadow)
-        rect(10, 10, Int(bounds.width) - 20, Int(bounds.height) - 20, edge)
-        rect(14, 14, Int(bounds.width) - 28, Int(bounds.height) - 28, paper)
-        rect(18, 18, Int(bounds.width) - 36, 4, trim)
-        rect(18, Int(bounds.height) - 24, Int(bounds.width) - 36, 4, trim)
+
+        let cardRect = bounds.insetBy(dx: 12, dy: 10)
+        let cardPath = NSBezierPath(roundedRect: cardRect, xRadius: 18, yRadius: 18)
+
+        NSGraphicsContext.saveGraphicsState()
+        let shadow = NSShadow()
+        shadow.shadowColor = NSColor.black.withAlphaComponent(palette.isDark ? 0.34 : 0.18)
+        shadow.shadowBlurRadius = 18
+        shadow.shadowOffset = NSSize(width: 0, height: -5)
+        shadow.set()
+        palette.cardFill.setFill()
+        cardPath.fill()
+        NSGraphicsContext.restoreGraphicsState()
+
+        palette.cardFill.setFill()
+        cardPath.fill()
+        palette.cardStroke.setStroke()
+        cardPath.lineWidth = 1
+        cardPath.stroke()
+
+        let highlight = rectFromTop(x: 24, y: 16, width: Int(bounds.width) - 48, height: 1)
+        palette.cardHighlight.setFill()
+        NSBezierPath(roundedRect: highlight, xRadius: 0.5, yRadius: 0.5).fill()
     }
 
-    private func drawProgressRow(title: String, percent: Double?, detail: String, x: Int, y: Int, width: Int, color: NSColor) {
-        drawText(title, x: x, y: y, size: 11, weight: .semibold)
-        drawText(formatPercent(percent ?? 0), x: x + width - 42, y: y, size: 11, weight: .bold)
-        drawBar(percent: percent, x: x, y: y + 19, width: width, height: 15, color: color)
-        drawText(detail, x: x, y: y + 38, size: 9, color: NSColor(calibratedWhite: 0.33, alpha: 1))
+    private func drawQuotaRow(title: String, percent: Double?, detail: String, y: Int) {
+        let x = 24
+        let width = Int(bounds.width) - 48
+        drawText(title, x: x, y: y, size: 12, weight: .medium, color: palette.primaryText)
+        drawRightText(formatPercent(percent ?? 0), right: 24, y: y - 2, size: 18, weight: .semibold, color: palette.primaryText)
+        drawBar(percent: percent, x: x, y: y + 26, width: width, height: 9, color: color(for: percent))
+        drawText(detail, x: x, y: y + 42, size: 10, color: palette.secondaryText)
     }
 
     private func drawBar(percent: Double?, x: Int, y: Int, width: Int, height: Int, color: NSColor) {
-        let outline = NSColor(calibratedWhite: 0.08, alpha: 1)
-        let shell = NSColor(calibratedRed: 1.00, green: 0.80, blue: 0.42, alpha: 1)
-        let well = NSColor(calibratedRed: 1.00, green: 0.94, blue: 0.72, alpha: 1)
-        let shine = NSColor(calibratedRed: 1.00, green: 0.96, blue: 0.72, alpha: 1)
         let clamped = min(100, max(0, percent ?? 0))
-        var fillWidth = Int((clamped / 100 * Double(width - 6)).rounded())
+        let trackRect = rectFromTop(x: x, y: y, width: width, height: height)
+        var fillWidth = Int((clamped / 100 * Double(width)).rounded())
         if clamped > 0 {
             fillWidth = max(5, fillWidth)
         }
 
-        rect(x, y, width, height, outline)
-        rect(x + 1, y + 1, width - 2, height - 2, shell)
-        rect(x + 3, y + 3, width - 6, height - 6, well)
+        palette.trackFill.setFill()
+        NSBezierPath(roundedRect: trackRect, xRadius: CGFloat(height) / 2, yRadius: CGFloat(height) / 2).fill()
+
         if fillWidth > 0 {
-            rect(x + 3, y + 3, fillWidth, height - 6, color)
-            rect(x + 4, y + 3, max(1, fillWidth - 2), 2, shine.withAlphaComponent(0.36))
+            let fillRect = NSRect(x: trackRect.minX, y: trackRect.minY, width: CGFloat(fillWidth), height: trackRect.height)
+            color.setFill()
+            NSBezierPath(roundedRect: fillRect, xRadius: CGFloat(height) / 2, yRadius: CGFloat(height) / 2).fill()
         }
 
-        for tick in stride(from: x + 36, through: x + width - 28, by: 36) {
-            rect(tick, y + 3, 1, height - 6, outline.withAlphaComponent(0.18))
-        }
+        palette.trackStroke.setStroke()
+        let outline = NSBezierPath(roundedRect: trackRect, xRadius: CGFloat(height) / 2, yRadius: CGFloat(height) / 2)
+        outline.lineWidth = 0.8
+        outline.stroke()
     }
 
-    private func drawPill(_ text: String, x: Int, y: Int, color: NSColor) {
-        let width = 82
-        rect(x, y, width, 18, NSColor(calibratedWhite: 0.08, alpha: 1))
-        rect(x + 2, y + 2, width - 4, 14, color)
-        drawText(text, x: x + 9, y: y + 3, size: 9, weight: .bold, color: NSColor(calibratedWhite: 0.08, alpha: 1))
+    private func drawStatusPill(_ text: String, x: Int, y: Int, width: Int, state: CatState) {
+        let color = stateColor(state)
+        let rect = rectFromTop(x: x, y: y, width: width, height: 24)
+        color.withAlphaComponent(palette.isDark ? 0.22 : 0.14).setFill()
+        NSBezierPath(roundedRect: rect, xRadius: 12, yRadius: 12).fill()
+        color.withAlphaComponent(0.42).setStroke()
+        let outline = NSBezierPath(roundedRect: rect, xRadius: 12, yRadius: 12)
+        outline.lineWidth = 1
+        outline.stroke()
+
+        let dot = rectFromTop(x: x + 10, y: y + 8, width: 8, height: 8)
+        color.setFill()
+        NSBezierPath(ovalIn: dot).fill()
+        drawText(text, x: x + 24, y: y + 6, size: 10, weight: .semibold, color: palette.primaryText)
+    }
+
+    private func drawQuitButton() {
+        let rect = quitButtonRect
+        palette.buttonFill.setFill()
+        NSBezierPath(roundedRect: rect, xRadius: 10, yRadius: 10).fill()
+        palette.cardStroke.setStroke()
+        let outline = NSBezierPath(roundedRect: rect, xRadius: 10, yRadius: 10)
+        outline.lineWidth = 1
+        outline.stroke()
+        drawCenteredText("Quit", in: rect, size: 10, weight: .medium, color: palette.secondaryText)
     }
 
     private func resetDetail(_ bucket: TokenBucketSnapshot?) -> String {
@@ -997,29 +1029,29 @@ final class TokenDetailsPanel: NSView {
         let window = bucket.windowMinutes >= 1440
             ? "\(bucket.windowMinutes / 1440)d"
             : String(format: "%.0fh", Double(bucket.windowMinutes) / 60)
-        return "\(formatPercent(bucket.usedPercent)) used in \(window), resets \(reset)"
+        return "\(formatPercent(bucket.usedPercent)) used · \(window) window · resets \(reset)"
     }
 
     private func stateColor(_ state: CatState) -> NSColor {
         switch state {
         case .idle:
-            return NSColor(calibratedRed: 0.55, green: 0.72, blue: 1.00, alpha: 1)
+            return .systemBlue
         case .running:
-            return NSColor(calibratedRed: 0.22, green: 0.92, blue: 0.54, alpha: 1)
+            return .systemGreen
         case .review:
-            return NSColor(calibratedRed: 1.00, green: 0.28, blue: 0.28, alpha: 1)
+            return .systemRed
         }
     }
 
     private func color(for percent: Double?) -> NSColor {
         let value = percent ?? 0
         if value < 20 {
-            return NSColor(calibratedRed: 1.00, green: 0.12, blue: 0.16, alpha: 1)
+            return .systemRed
         }
         if value < 45 {
-            return NSColor(calibratedRed: 1.00, green: 0.58, blue: 0.12, alpha: 1)
+            return .systemOrange
         }
-        return NSColor(calibratedRed: 0.12, green: 0.82, blue: 0.36, alpha: 1)
+        return .systemGreen
     }
 
     private func drawText(
@@ -1028,24 +1060,95 @@ final class TokenDetailsPanel: NSView {
         y: Int,
         size: CGFloat,
         weight: NSFont.Weight = .regular,
-        color: NSColor = NSColor(calibratedWhite: 0.08, alpha: 1)
+        color: NSColor
     ) {
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: size, weight: weight),
+            .font: NSFont.systemFont(ofSize: size, weight: weight),
             .foregroundColor: color
         ]
         text.draw(at: NSPoint(x: CGFloat(x), y: bounds.height - CGFloat(y) - size - 2), withAttributes: attributes)
     }
 
-    private func rect(_ x: Int, _ yFromTop: Int, _ w: Int, _ h: Int, _ color: NSColor) {
-        color.setFill()
+    private func drawRightText(_ text: String, right: Int, y: Int, size: CGFloat, weight: NSFont.Weight, color: NSColor) {
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: size, weight: weight),
+            .foregroundColor: color
+        ]
+        let textSize = text.size(withAttributes: attributes)
+        text.draw(
+            at: NSPoint(x: bounds.width - CGFloat(right) - textSize.width, y: bounds.height - CGFloat(y) - size - 2),
+            withAttributes: attributes
+        )
+    }
+
+    private func drawCenteredText(_ text: String, in rect: NSRect, size: CGFloat, weight: NSFont.Weight, color: NSColor) {
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: size, weight: weight),
+            .foregroundColor: color
+        ]
+        let textSize = text.size(withAttributes: attributes)
+        text.draw(
+            at: NSPoint(x: rect.midX - textSize.width / 2, y: rect.midY - textSize.height / 2),
+            withAttributes: attributes
+        )
+    }
+
+    private var quitButtonRect: NSRect {
+        rectFromTop(x: Int(bounds.width) - 76, y: 176, width: 52, height: 24)
+    }
+
+    private func rectFromTop(x: Int, y: Int, width: Int, height: Int) -> NSRect {
         NSRect(
             x: CGFloat(x),
-            y: bounds.height - CGFloat(yFromTop) - CGFloat(h),
-            width: CGFloat(w),
-            height: CGFloat(h)
-        ).fill()
+            y: bounds.height - CGFloat(y) - CGFloat(height),
+            width: CGFloat(width),
+            height: CGFloat(height)
+        )
     }
+
+    private var palette: PanelPalette {
+        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        if dark {
+            return PanelPalette(
+                isDark: true,
+                cardFill: NSColor(calibratedWhite: 0.12, alpha: 0.78),
+                cardStroke: NSColor.white.withAlphaComponent(0.18),
+                cardHighlight: NSColor.white.withAlphaComponent(0.24),
+                primaryText: NSColor.white.withAlphaComponent(0.94),
+                secondaryText: NSColor.white.withAlphaComponent(0.62),
+                tertiaryText: NSColor.white.withAlphaComponent(0.42),
+                trackFill: NSColor.white.withAlphaComponent(0.12),
+                trackStroke: NSColor.white.withAlphaComponent(0.14),
+                buttonFill: NSColor.white.withAlphaComponent(0.08)
+            )
+        }
+
+        return PanelPalette(
+            isDark: false,
+            cardFill: NSColor.white.withAlphaComponent(0.82),
+            cardStroke: NSColor.white.withAlphaComponent(0.72),
+            cardHighlight: NSColor.white.withAlphaComponent(0.92),
+            primaryText: NSColor.black.withAlphaComponent(0.86),
+            secondaryText: NSColor.black.withAlphaComponent(0.52),
+            tertiaryText: NSColor.black.withAlphaComponent(0.42),
+            trackFill: NSColor.black.withAlphaComponent(0.08),
+            trackStroke: NSColor.black.withAlphaComponent(0.08),
+            buttonFill: NSColor.black.withAlphaComponent(0.045)
+        )
+    }
+}
+
+private struct PanelPalette {
+    let isDark: Bool
+    let cardFill: NSColor
+    let cardStroke: NSColor
+    let cardHighlight: NSColor
+    let primaryText: NSColor
+    let secondaryText: NSColor
+    let tertiaryText: NSColor
+    let trackFill: NSColor
+    let trackStroke: NSColor
+    let buttonFill: NSColor
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
@@ -1083,14 +1186,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let menu = NSMenu()
         menu.delegate = self
 
+        detailsPanel.onQuit = { [weak self] in
+            self?.quit()
+        }
         let detailsItem = NSMenuItem()
         detailsItem.view = detailsPanel
         menu.addItem(detailsItem)
-        menu.addItem(.separator())
-
-        let quit = NSMenuItem(title: "Quit Codex Cat", action: #selector(quit), keyEquivalent: "q")
-        quit.target = self
-        menu.addItem(quit)
 
         statusItem.menu = menu
         statusItem.button?.title = ""
