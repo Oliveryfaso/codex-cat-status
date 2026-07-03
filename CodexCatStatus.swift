@@ -451,11 +451,16 @@ final class CodexStatusProbe {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private let animationInterval: TimeInterval = 0.16
+    private let statusPollInterval: TimeInterval = 1.0
     private let statusItem = NSStatusBar.system.statusItem(withLength: 34)
     private let probe = CodexStatusProbe()
     private let icon = AnimatedCatSprite()
     private var timer: Timer?
     private var frame = 0
+    private var pollCount = 0
+    private var lastSnapshot: StatusSnapshot?
+    private var lastStatusPoll = Date.distantPast
     private var statusMenuItem = NSMenuItem()
     private var detailMenuItem = NSMenuItem()
 
@@ -465,7 +470,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updateStatus()
         appendLog("launched")
 
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: animationInterval, repeats: true) { [weak self] _ in
             self?.updateStatus()
         }
     }
@@ -490,12 +495,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func updateStatus() {
-        let snapshot = probe.snapshot()
+        let now = Date()
+        var didPoll = false
+        if lastSnapshot == nil || now.timeIntervalSince(lastStatusPoll) >= statusPollInterval {
+            lastSnapshot = probe.snapshot()
+            lastStatusPoll = now
+            pollCount += 1
+            didPoll = true
+        }
+
+        guard let snapshot = lastSnapshot else { return }
+
         frame += 1
         statusItem.button?.image = icon.image(state: snapshot.state, frame: frame)
         statusItem.button?.toolTip = "Codex is \(snapshot.state.rawValue)"
         statusMenuItem.title = "Codex: \(snapshot.state.rawValue)"
-        if frame.isMultiple(of: 10) {
+        if didPoll, pollCount.isMultiple(of: 10) {
             appendLog("state=\(snapshot.state.rawValue) conversation=\(snapshot.activeConversation) pending=\(snapshot.pendingCalls) jobs=\(snapshot.runningJobs) review=\(snapshot.reviewSignals)")
         }
 
