@@ -83,9 +83,13 @@ struct TokenUsageSnapshot {
         return min(100, max(0, Double(remainingContextTokens) / Double(contextWindow) * 100))
     }
 
+    var menuBarQuotaPercent: Double? {
+        primaryLimit?.remainingPercent
+    }
+
     var menuBarText: String {
-        guard let remainingContextPercent else { return "[------] --" }
-        return formatBattery(remainingContextPercent, width: 6, includePercent: true)
+        guard let menuBarQuotaPercent else { return "[------] --" }
+        return formatBattery(menuBarQuotaPercent, width: 6, includePercent: true)
     }
 }
 
@@ -326,7 +330,7 @@ final class PixelStatusBadge {
             operation: .sourceOver,
             fraction: 1
         )
-        drawBattery(percent: tokenUsage.remainingContextPercent)
+        drawBattery(percent: tokenUsage.menuBarQuotaPercent)
 
         image.unlockFocus()
         return image
@@ -337,9 +341,13 @@ final class PixelStatusBadge {
         let y = 3
         let bodyWidth = 10
         let bodyHeight = 18
+        let hasKnownPercent = percent != nil
         let clamped = min(100, max(0, percent ?? 0))
         let innerHeight = bodyHeight - 4
-        let fillHeight = Int((clamped / 100 * Double(innerHeight)).rounded())
+        var fillHeight = Int((clamped / 100 * Double(innerHeight)).rounded())
+        if hasKnownPercent, clamped <= 5 {
+            fillHeight = 2
+        }
         let fillColor = clamped < 20 ? low : (clamped < 45 ? mid : high)
 
         rect(x + 3, y - 2, 4, 2, outline)

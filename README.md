@@ -33,7 +33,7 @@ The alert state intentionally avoids broad text matching. It only appears when t
 
 ## Token Display
 
-The indicator next to the cat is the estimated remaining context window for the latest observed Codex turn, based on Codex `token_count` events:
+The indicator next to the cat is the estimated remaining 5-hour quota window from the latest observed Codex `token_count` event:
 
 - Menu bar: pixel-art vertical battery next to the cat, without extra status text.
 - Click menu: a custom pixel-style detail panel with status signals and quota bars.
