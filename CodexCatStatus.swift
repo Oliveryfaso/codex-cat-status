@@ -152,7 +152,7 @@ func formatTokenBucket(_ bucket: TokenBucketSnapshot?) -> String {
         reset = "unknown"
     }
 
-    return "\(formatBattery(bucket.remainingPercent)) left in \(window), resets \(reset)"
+    return "\(formatBattery(bucket.remainingPercent)) left, \(formatPercent(bucket.usedPercent)) used in \(window), resets \(reset)"
 }
 
 final class AnimatedCatSprite {
@@ -895,7 +895,7 @@ final class TokenDetailsPanel: NSView {
         )
 
         drawProgressRow(
-            title: "Context estimate",
+            title: "Context remaining",
             percent: token.remainingContextPercent,
             detail: contextDetail(token),
             x: 18,
@@ -904,7 +904,7 @@ final class TokenDetailsPanel: NSView {
             color: color(for: token.remainingContextPercent)
         )
         drawProgressRow(
-            title: "5h quota window",
+            title: "5h quota remaining",
             percent: token.primaryLimit?.remainingPercent,
             detail: resetDetail(token.primaryLimit),
             x: 18,
@@ -913,7 +913,7 @@ final class TokenDetailsPanel: NSView {
             color: color(for: token.primaryLimit?.remainingPercent)
         )
         drawProgressRow(
-            title: "7d quota window",
+            title: "7d quota remaining",
             percent: token.secondaryLimit?.remainingPercent,
             detail: resetDetail(token.secondaryLimit),
             x: 18,
@@ -960,7 +960,10 @@ final class TokenDetailsPanel: NSView {
         let well = NSColor(calibratedRed: 1.00, green: 0.94, blue: 0.72, alpha: 1)
         let shine = NSColor(calibratedRed: 1.00, green: 0.96, blue: 0.72, alpha: 1)
         let clamped = min(100, max(0, percent ?? 0))
-        let fillWidth = Int((clamped / 100 * Double(width - 6)).rounded())
+        var fillWidth = Int((clamped / 100 * Double(width - 6)).rounded())
+        if clamped > 0 {
+            fillWidth = max(5, fillWidth)
+        }
 
         rect(x, y, width, height, outline)
         rect(x + 1, y + 1, width - 2, height - 2, shell)
@@ -1003,7 +1006,7 @@ final class TokenDetailsPanel: NSView {
         let window = bucket.windowMinutes >= 1440
             ? "\(bucket.windowMinutes / 1440)d"
             : String(format: "%.0fh", Double(bucket.windowMinutes) / 60)
-        return "Window \(window), resets \(reset)"
+        return "\(formatPercent(bucket.usedPercent)) used in \(window), resets \(reset)"
     }
 
     private func stateColor(_ state: CatState) -> NSColor {
