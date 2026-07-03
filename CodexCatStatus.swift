@@ -315,6 +315,82 @@ final class AnimatedCatSprite {
     }
 }
 
+final class PixelStatusBadge {
+    private let width = 74
+    private let height = 22
+    private let cat = AnimatedCatSprite()
+
+    private let outline = NSColor(calibratedWhite: 0.08, alpha: 1)
+    private let shell = NSColor(calibratedRed: 1.00, green: 0.86, blue: 0.58, alpha: 1)
+    private let low = NSColor(calibratedRed: 1.00, green: 0.18, blue: 0.20, alpha: 1)
+    private let mid = NSColor(calibratedRed: 1.00, green: 0.70, blue: 0.36, alpha: 1)
+    private let high = NSColor(calibratedRed: 0.22, green: 0.92, blue: 0.54, alpha: 1)
+
+    func image(state: CatState, frame: Int, tokenUsage: TokenUsageSnapshot) -> NSImage {
+        let image = NSImage(size: NSSize(width: width, height: height))
+        image.isTemplate = false
+        image.lockFocus()
+
+        NSGraphicsContext.current?.shouldAntialias = false
+        NSGraphicsContext.current?.imageInterpolation = .none
+        NSColor.clear.setFill()
+        NSRect(x: 0, y: 0, width: width, height: height).fill()
+
+        cat.image(state: state, frame: frame).draw(
+            in: NSRect(x: 0, y: 0, width: 30, height: 22),
+            from: .zero,
+            operation: .sourceOver,
+            fraction: 1
+        )
+        drawBattery(percent: tokenUsage.remainingContextPercent)
+        drawPercent(percent: tokenUsage.remainingContextPercent)
+
+        image.unlockFocus()
+        return image
+    }
+
+    private func drawBattery(percent: Double?) {
+        let x = 35
+        let y = 4
+        let bodyWidth = 29
+        let bodyHeight = 9
+        let clamped = min(100, max(0, percent ?? 0))
+        let fillWidth = Int((clamped / 100 * Double(bodyWidth - 4)).rounded())
+        let fillColor = clamped < 20 ? low : (clamped < 45 ? mid : high)
+
+        rect(x, y, bodyWidth, bodyHeight, outline)
+        rect(x + 1, y + 1, bodyWidth - 2, bodyHeight - 2, shell)
+        rect(x + bodyWidth, y + 3, 2, 3, outline)
+
+        if fillWidth > 0 {
+            rect(x + 2, y + 2, fillWidth, bodyHeight - 4, fillColor)
+        }
+
+        for tick in stride(from: x + 7, through: x + bodyWidth - 7, by: 6) {
+            rect(tick, y + 2, 1, bodyHeight - 4, outline.withAlphaComponent(0.28))
+        }
+    }
+
+    private func drawPercent(percent: Double?) {
+        let text = percent.map { "\(Int(min(100, max(0, $0)).rounded()))%" } ?? "--"
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .bold),
+            .foregroundColor: NSColor(calibratedWhite: 0.08, alpha: 1)
+        ]
+        text.draw(at: NSPoint(x: 37, y: 1), withAttributes: attributes)
+    }
+
+    private func rect(_ x: Int, _ yFromTop: Int, _ w: Int, _ h: Int, _ color: NSColor) {
+        color.setFill()
+        NSRect(
+            x: CGFloat(x),
+            y: CGFloat(height - yFromTop - h),
+            width: CGFloat(w),
+            height: CGFloat(h)
+        ).fill()
+    }
+}
+
 final class CodexStatusProbe {
     private let fileManager = FileManager.default
     private let home = FileManager.default.homeDirectoryForCurrentUser
@@ -778,15 +854,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let statusPollInterval: TimeInterval = 1.0
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let probe = CodexStatusProbe()
-    private let icon = AnimatedCatSprite()
+    private let icon = PixelStatusBadge()
     private var timer: Timer?
     private var frame = 0
     private var pollCount = 0
     private var lastSnapshot: StatusSnapshot?
     private var lastStatusPoll = Date.distantPast
     private var statusMenuItem = NSMenuItem()
-    private var detailMenuItem = NSMenuItem()
-    private var tokenMenuItem = NSMenuItem()
+    private var detailMenuItems: [NSMenuItem] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -803,11 +878,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
 
         statusMenuItem = NSMenuItem(title: "Codex: checking", action: nil, keyEquivalent: "")
-        detailMenuItem = NSMenuItem(title: "Reading ~/.codex status", action: nil, keyEquivalent: "")
-        tokenMenuItem = NSMenuItem(title: "Token usage: checking", action: nil, keyEquivalent: "")
         menu.addItem(statusMenuItem)
-        menu.addItem(detailMenuItem)
-        menu.addItem(tokenMenuItem)
+        detailMenuItems = (0..<8).map { _ in
+            let item = NSMenuItem(title: "Reading ~/.codex status", action: nil, keyEquivalent: "")
+            menu.addItem(item)
+            return item
+        }
         menu.addItem(.separator())
 
         let quit = NSMenuItem(title: "Quit Codex Cat", action: #selector(quit), keyEquivalent: "q")
@@ -816,7 +892,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         statusItem.menu = menu
         statusItem.button?.title = ""
-        statusItem.button?.imagePosition = .imageLeft
+        statusItem.button?.imagePosition = .imageOnly
         statusItem.button?.imageScaling = .scaleProportionallyUpOrDown
     }
 
@@ -833,8 +909,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let snapshot = lastSnapshot else { return }
 
         frame += 1
-        statusItem.button?.image = icon.image(state: snapshot.state, frame: frame)
-        statusItem.button?.title = " \(snapshot.tokenUsage.menuBarText)"
+        statusItem.button?.image = icon.image(state: snapshot.state, frame: frame, tokenUsage: snapshot.tokenUsage)
         statusItem.button?.toolTip = tooltipText(for: snapshot)
         statusMenuItem.title = "Codex: \(snapshot.state.rawValue)"
         if didPoll, pollCount.isMultiple(of: 10) {
@@ -846,19 +921,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             dateStyle: .none,
             timeStyle: .medium
         )
-        detailMenuItem.title = "conversation \(snapshot.activeConversation), pending \(snapshot.pendingCalls), jobs \(snapshot.runningJobs), review \(snapshot.reviewSignals), \(time)"
-        tokenMenuItem.title = tokenMenuTitle(for: snapshot.tokenUsage)
+        let lines = tooltipLines(for: snapshot)
+        for (index, item) in detailMenuItems.enumerated() {
+            if index < lines.count {
+                item.title = lines[index]
+                item.isHidden = false
+            } else {
+                item.isHidden = true
+            }
+        }
+        statusMenuItem.title = "Codex Cat Status, \(time)"
     }
 
     private func tooltipText(for snapshot: StatusSnapshot) -> String {
+        tooltipLines(for: snapshot).joined(separator: "\n")
+    }
+
+    private func tooltipLines(for snapshot: StatusSnapshot) -> [String] {
         let token = snapshot.tokenUsage
         let context: String
         if let remaining = token.remainingContextTokens,
            let window = token.contextWindow,
            let percent = token.remainingContextPercent {
-            context = "\(formatBattery(percent)) context left (\(formatCompact(remaining)) / \(formatCompact(window)))"
+            context = "Context estimate: \(formatBattery(percent)) left (\(formatCompact(remaining)) / \(formatCompact(window)))"
         } else {
-            context = "Context remaining unknown"
+            context = "Context estimate: unknown"
         }
 
         let current = token.currentTotalTokens.map { formatCompact($0) } ?? "unknown"
@@ -867,20 +954,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         return [
             "Codex is \(snapshot.state.rawValue)",
+            "Signals: conversation \(snapshot.activeConversation), pending \(snapshot.pendingCalls), jobs \(snapshot.runningJobs), review \(snapshot.reviewSignals)",
             context,
-            "Current turn: \(current)",
-            "Today observed: \(today)",
-            "This week observed: \(week)",
-            "5h quota: \(formatTokenBucket(token.primaryLimit))",
-            "7d quota: \(formatTokenBucket(token.secondaryLimit))"
-        ].joined(separator: "\n")
-    }
-
-    private func tokenMenuTitle(for token: TokenUsageSnapshot) -> String {
-        let remaining = token.remainingContextPercent.map { formatBattery($0, width: 8, includePercent: true) } ?? "[--------] --"
-        let today = formatCompact(token.observedTodayTokens)
-        let week = formatCompact(token.observedWeekTokens)
-        return "context \(remaining), today \(today), week \(week)"
+            "Current turn observed: \(current)",
+            "Today observed locally: \(today)",
+            "This week observed locally: \(week)",
+            "5h quota window: \(formatTokenBucket(token.primaryLimit))",
+            "7d quota window: \(formatTokenBucket(token.secondaryLimit))"
+        ]
     }
 
     @objc private func quit() {
