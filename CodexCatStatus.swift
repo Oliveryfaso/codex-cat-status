@@ -143,8 +143,8 @@ func formatBattery(_ percent: Double?, width: Int = 10, includePercent: Bool = t
 }
 
 final class AnimatedCatSprite {
-    private let width = 34
-    private let height = 24
+    private let width = 44
+    private let height = 28
 
     private let outline = NSColor(calibratedWhite: 0.04, alpha: 1)
     private let fur = NSColor(calibratedWhite: 0.90, alpha: 1)
@@ -180,117 +180,176 @@ final class AnimatedCatSprite {
     private func drawRunning(frame: Int) {
         let phase = frame % 8
         let bob = [2, 0, -2, -3, -1, 1, 3, 1][phase]
-        let lean = [-1, 1, 2, 1, -1, -2, -1, 0][phase]
-        let stretch = [0, 1, 2, 1, 0, 1, 2, 1][phase]
-        let frontLeg = [4, 2, 0, -3, -5, -2, 1, 3][phase]
-        let backLeg = [-5, -2, 1, 4, 5, 2, -1, -4][phase]
-        let frontDrop = [2, 1, 0, 0, 1, 2, 2, 1][phase]
-        let backDrop = [0, 1, 2, 2, 1, 0, 0, 1][phase]
+        let lean = [-1, 1, 2, 2, 0, -2, -2, 0][phase]
+        let wave = [0, 1, 2, 1, 0, -1, -2, -1][phase]
+        let reach = [6, 3, 0, -4, -6, -2, 2, 5][phase]
+        let push = [-6, -3, 1, 5, 6, 2, -2, -5][phase]
 
-        drawTail(baseX: 25 + lean, baseY: 10 + bob, phase: phase, wild: true)
-        drawBody(x: 9 + lean, y: 8 + bob, stretch: stretch)
-        drawHead(x: 3 + lean, y: 4 + bob, blink: false, surprised: false)
-
-        rect(12 + lean + frontLeg, 18 + bob + frontDrop, 5, 2, outline)
-        rect(13 + lean + frontLeg, 17 + bob + frontDrop, 3, 2, furDark)
-        rect(22 + lean + backLeg, 18 + bob + backDrop, 5, 2, outline)
-        rect(23 + lean + backLeg, 17 + bob + backDrop, 3, 2, furDark)
-
-        rect(0, 21, 3, 1, mid.withAlphaComponent(phase % 2 == 0 ? 0.75 : 0.35))
-        rect(3, 20, 4, 1, mid.withAlphaComponent(phase % 2 == 0 ? 0.55 : 0.2))
+        drawSpeedLines(phase: phase)
+        drawRunTail(baseX: 35 + lean, baseY: 11 + bob, phase: phase)
+        drawRunBody(x: 13 + lean, y: 10 + bob, wave: wave)
+        drawRunHead(x: 4 + lean, y: 6 + bob + min(1, wave), phase: phase)
+        drawRunLegs(x: 16 + lean, y: 18 + bob, reach: reach, push: push, phase: phase)
     }
 
     private func drawIdle(frame: Int) {
         let phase = frame % 12
         let breathe = phase < 6 ? 0 : 1
-        let tailLift = [0, -1, -2, -2, -1, 0, 1, 2, 1, 0, -1, 0][phase]
         let sleepShift = phase < 6 ? 0 : 2
 
-        rect(9, 12, 16, 7 + breathe, outline)
-        rect(10, 11, 14, 8 + breathe, outline)
-        rect(11, 12, 12, 6 + breathe, fur)
-        rect(13, 13, 8, 4 + breathe, furLight)
-        rect(16, 15, 3, 2, mid)
-
-        rect(4, 8, 10, 8, outline)
-        rect(5, 9, 8, 6, fur)
-        rect(5, 6, 2, 4, outline)
-        rect(11, 6, 2, 4, outline)
-        rect(6, 10, 6, 3, furLight)
-        rect(7, 11, 2, 1, outline)
-        rect(11, 11, 2, 1, outline)
-
-        rect(22, 13 + tailLift, 7, 3, outline)
-        rect(23, 14 + tailLift, 5, 1, furDark)
-        rect(19, 15 + tailLift, 5, 2, outline)
-        rect(20, 15 + tailLift, 3, 1, fur)
+        drawCurledBody(x: 9, y: 10, breathe: breathe)
+        drawCurledHead(x: 8, y: 9 + breathe)
+        drawCurledTail(x: 23, y: 13 + breathe)
 
         if phase < 6 {
-            rect(27 + sleepShift, 4, 2, 1, signal)
-            rect(28 + sleepShift, 3, 2, 1, signal)
-            rect(27 + sleepShift, 2, 4, 1, signal)
+            rect(30 + sleepShift, 4, 2, 1, signal)
+            rect(31 + sleepShift, 3, 2, 1, signal)
+            rect(30 + sleepShift, 2, 4, 1, signal)
         } else {
-            rect(28 + sleepShift, 3, 2, 1, signal)
-            rect(30 + sleepShift, 2, 2, 1, signal)
-            rect(28 + sleepShift, 1, 4, 1, signal)
+            rect(31 + sleepShift, 3, 2, 1, signal)
+            rect(33 + sleepShift, 2, 2, 1, signal)
+            rect(31 + sleepShift, 1, 4, 1, signal)
         }
     }
 
     private func drawReview(frame: Int) {
         let phase = frame % 4
-        let shake = [-3, 2, 3, -2][phase]
-        let bob = [0, -2, 0, 2][phase]
-        let markShift = [0, 1, 0, -1][phase]
+        let wobble = [-1, 1, 2, -2][phase]
+        let pop = [0, -1, 0, 1][phase]
 
-        drawBody(x: 10 + shake, y: 9 + bob, stretch: 0)
-        drawHead(x: 4 + shake, y: 4 + bob, blink: false, surprised: true)
-        drawTail(baseX: 25 + shake, baseY: 11 + bob, phase: phase, wild: true)
-
-        rect(29 + markShift, 1 + bob, 2, 11, signal)
-        rect(29 + markShift, 14 + bob, 2, 2, signal)
-        rect(14 + shake, 18 + bob, 4, 2, outline)
-        rect(22 + shake, 18 + bob, 4, 2, outline)
+        drawSittingBody(x: 15 + wobble, y: 12 + pop)
+        drawReviewHead(x: 10 + wobble, y: 5 + pop, phase: phase)
+        drawSittingTail(x: 29 + wobble, y: 17 + pop, phase: phase)
+        drawReviewMark(x: 35 - wobble, y: 2 + pop, phase: phase)
     }
 
-    private func drawHead(x: Int, y: Int, blink: Bool, surprised: Bool) {
-        rect(x + 1, y + 2, 9, 8, outline)
-        rect(x + 2, y + 3, 7, 6, fur)
+    private func drawRunHead(x: Int, y: Int, phase: Int) {
+        rect(x + 1, y + 2, 10, 8, outline)
+        rect(x + 2, y + 3, 8, 6, fur)
         rect(x + 2, y + 1, 2, 3, outline)
-        rect(x + 7, y + 1, 2, 3, outline)
-        rect(x + 3, y + 4, 5, 2, furLight)
+        rect(x + 8, y + 1, 2, 3, outline)
+        rect(x + 3, y + 4, 6, 2, furLight)
         rect(x + 5, y + 6, 1, 1, mid)
-
-        if blink {
-            rect(x + 3, y + 5, 2, 1, outline)
-            rect(x + 7, y + 5, 2, 1, outline)
-        } else if surprised {
-            rect(x + 3, y + 5, 2, 2, eye)
-            rect(x + 7, y + 5, 2, 2, eye)
-            rect(x + 5, y + 8, 2, 2, signal)
-        } else {
-            rect(x + 3, y + 5, 1, 2, eye)
-            rect(x + 7, y + 5, 1, 2, eye)
-            rect(x + 5, y + 8, 2, 1, outline)
-        }
+        rect(x + 4, y + 5, 1, 2, eye)
+        rect(x + 8, y + 5, 1, 2, eye)
+        rect(x + 6, y + 8, 2, 1, outline)
     }
 
-    private func drawBody(x: Int, y: Int, stretch: Int) {
-        rect(x + 1, y + 1, 15 + stretch, 7, outline)
-        rect(x, y + 3, 17 + stretch, 4, outline)
-        rect(x + 2, y + 2, 13 + stretch, 5, fur)
-        rect(x + 5, y + 3, 7 + stretch, 3, furLight)
-        rect(x + 4, y + 2, 2, 1, mid)
-        rect(x + 13 + stretch, y + 2, 2, 1, furDark)
+    private func drawReviewHead(x: Int, y: Int, phase: Int) {
+        rect(x + 1, y + 2, 12, 10, outline)
+        rect(x + 2, y + 3, 10, 8, fur)
+        rect(x + 2, y, 3, 4, outline)
+        rect(x + 9, y, 3, 4, outline)
+        rect(x + 4, y + 5, 6, 2, furLight)
+        rect(x + 4, y + 6, 2, 2, eye)
+        rect(x + 9, y + 6, 2, 2, eye)
+        rect(x + 6, y + 9, 3, 2, signal)
+        rect(x + 3, y + 12, 2, 2, outline)
+        rect(x + 10, y + 12, 2, 2, outline)
     }
 
-    private func drawTail(baseX: Int, baseY: Int, phase: Int, wild: Bool) {
-        let lift = wild
-            ? [3, 1, -2, -4, -2, 1, 3, 2][phase % 8]
-            : [1, 0, -1, -2, -1, 0, 1, 0][phase % 8]
-        rect(baseX, baseY + 2 + lift, 6, 2, outline)
-        rect(baseX + 4, baseY - 1 + lift, 2, 5, outline)
-        rect(baseX + 1, baseY + 3 + lift, 5, 1, furDark)
-        rect(baseX + 5, baseY + lift, 1, 4, fur)
+    private func drawRunBody(x: Int, y: Int, wave: Int) {
+        let frontLift = max(0, -wave)
+        let backLift = max(0, wave)
+        rect(x + 1, y + 2 + frontLift, 25, 7, outline)
+        rect(x, y + 5 + frontLift, 27, 4, outline)
+        rect(x + 3, y + 1 + backLift, 18, 5, outline)
+        rect(x + 3, y + 3 + frontLift, 21, 5, fur)
+        rect(x + 7, y + 4 + frontLift, 13, 3, furLight)
+        rect(x + 21, y + 4 + backLift, 4, 3, furDark)
+        rect(x + 5, y + 2 + backLift, 4, 1, mid)
+    }
+
+    private func drawRunLegs(x: Int, y: Int, reach: Int, push: Int, phase: Int) {
+        drawConnectedLeg(hipX: x + 2, hipY: y - 2, footX: x + 4 + reach, footY: y + 5 + (phase % 2), front: true)
+        drawConnectedLeg(hipX: x + 19, hipY: y - 2, footX: x + 18 + push, footY: y + 5 + ((phase + 1) % 2), front: false)
+    }
+
+    private func drawConnectedLeg(hipX: Int, hipY: Int, footX: Int, footY: Int, front: Bool) {
+        let kneeX = (hipX + footX) / 2
+        let kneeY = hipY + 3
+        rect(min(hipX, kneeX), hipY, abs(kneeX - hipX) + 3, 3, outline)
+        rect(min(kneeX, footX), kneeY, abs(footX - kneeX) + 3, 3, outline)
+        rect(min(hipX, kneeX) + 1, hipY + 1, max(1, abs(kneeX - hipX) + 1), 1, front ? fur : furDark)
+        rect(min(kneeX, footX) + 1, kneeY + 1, max(1, abs(footX - kneeX) + 1), 1, front ? fur : furDark)
+        rect(footX - 1, footY, 6, 2, outline)
+        rect(footX, footY - 1, 4, 2, front ? fur : furDark)
+    }
+
+    private func drawRunTail(baseX: Int, baseY: Int, phase: Int) {
+        let lift = [4, 2, -1, -4, -2, 1, 4, 3][phase % 8]
+        rect(baseX, baseY + 2 + lift, 8, 2, outline)
+        rect(baseX + 6, baseY - 1 + lift, 2, 6, outline)
+        rect(baseX + 1, baseY + 3 + lift, 6, 1, furDark)
+        rect(baseX + 7, baseY + lift, 1, 5, fur)
+    }
+
+    private func drawSpeedLines(phase: Int) {
+        let alpha = phase % 2 == 0 ? 0.75 : 0.35
+        rect(0, 23, 6, 1, mid.withAlphaComponent(alpha))
+        rect(3, 21, 5, 1, mid.withAlphaComponent(alpha * 0.7))
+        rect(1, 18, 3, 1, mid.withAlphaComponent(alpha * 0.45))
+    }
+
+    private func drawCurledBody(x: Int, y: Int, breathe: Int) {
+        rect(x + 8, y, 14, 3, outline)
+        rect(x + 4, y + 2, 24, 5, outline)
+        rect(x + 1, y + 6, 30, 8 + breathe, outline)
+        rect(x + 3, y + 14 + breathe, 26, 5, outline)
+        rect(x + 8, y + 19 + breathe, 16, 2, outline)
+
+        rect(x + 6, y + 4, 20, 12 + breathe, fur)
+        rect(x + 10, y + 5, 13, 8 + breathe, furLight)
+        rect(x + 18, y + 11, 6, 3, mid)
+        rect(x + 9, y + 17 + breathe, 13, 2, furDark)
+    }
+
+    private func drawCurledHead(x: Int, y: Int) {
+        rect(x + 1, y + 2, 11, 9, outline)
+        rect(x + 2, y + 3, 9, 7, fur)
+        rect(x + 2, y, 2, 4, outline)
+        rect(x + 9, y, 2, 4, outline)
+        rect(x + 4, y + 5, 5, 2, furLight)
+        rect(x + 4, y + 7, 2, 1, outline)
+        rect(x + 8, y + 7, 2, 1, outline)
+    }
+
+    private func drawCurledTail(x: Int, y: Int) {
+        rect(x, y - 1, 9, 3, outline)
+        rect(x + 7, y - 5, 3, 8, outline)
+        rect(x + 2, y + 2, 8, 3, outline)
+        rect(x + 1, y, 7, 1, furDark)
+        rect(x + 8, y - 4, 1, 6, fur)
+        rect(x + 3, y + 3, 6, 1, furDark)
+    }
+
+    private func drawSittingBody(x: Int, y: Int) {
+        rect(x + 2, y, 14, 13, outline)
+        rect(x, y + 6, 18, 8, outline)
+        rect(x + 3, y + 1, 12, 12, fur)
+        rect(x + 5, y + 3, 8, 8, furLight)
+        rect(x + 1, y + 14, 7, 3, outline)
+        rect(x + 12, y + 14, 7, 3, outline)
+        rect(x + 2, y + 13, 4, 2, furDark)
+        rect(x + 13, y + 13, 4, 2, furDark)
+        rect(x - 2, y + 7, 4, 2, outline)
+        rect(x + 16, y + 7, 4, 2, outline)
+    }
+
+    private func drawSittingTail(x: Int, y: Int, phase: Int) {
+        let curl = [0, 1, 0, -1][phase]
+        rect(x, y + curl, 8, 3, outline)
+        rect(x + 6, y - 4 + curl, 3, 7, outline)
+        rect(x + 1, y + 1 + curl, 6, 1, furDark)
+        rect(x + 7, y - 3 + curl, 1, 5, fur)
+    }
+
+    private func drawReviewMark(x: Int, y: Int, phase: Int) {
+        let hop = [0, -1, 0, 1][phase]
+        rect(x, y + hop, 3, 13, signal)
+        rect(x, y + 16 + hop, 3, 3, signal)
+        rect(x - 1, y + hop, 1, 13, outline.withAlphaComponent(0.55))
+        rect(x + 3, y + hop, 1, 13, outline.withAlphaComponent(0.55))
     }
 
     private func rect(_ x: Int, _ yFromTop: Int, _ w: Int, _ h: Int, _ color: NSColor) {
@@ -305,8 +364,8 @@ final class AnimatedCatSprite {
 }
 
 final class PixelStatusBadge {
-    private let width = 50
-    private let height = 24
+    private let width = 60
+    private let height = 28
     private let cat = AnimatedCatSprite()
 
     private let outline = NSColor(calibratedWhite: 0.04, alpha: 1)
@@ -327,7 +386,7 @@ final class PixelStatusBadge {
         NSRect(x: 0, y: 0, width: width, height: height).fill()
 
         cat.image(state: state, frame: frame).draw(
-            in: NSRect(x: 0, y: 0, width: 34, height: 24),
+            in: NSRect(x: 0, y: 0, width: 44, height: 28),
             from: .zero,
             operation: .sourceOver,
             fraction: 1
@@ -339,10 +398,10 @@ final class PixelStatusBadge {
     }
 
     private func drawBattery(percent: Double?, frame: Int) {
-        let x = 38
+        let x = 49
         let y = 3
         let bodyWidth = 9
-        let bodyHeight = 18
+        let bodyHeight = 22
         let hasKnownPercent = percent != nil
         let clamped = min(100, max(0, percent ?? 0))
         let innerHeight = bodyHeight - 4
