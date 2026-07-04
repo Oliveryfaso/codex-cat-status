@@ -67,16 +67,13 @@ class Sprite:
 
     def running(self, frame):
         phase = frame % 8
-        bob = [2, 0, -2, -3, -1, 1, 3, 1][phase]
-        lean = [-1, 1, 2, 2, 0, -2, -2, 0][phase]
-        wave = [0, 1, 2, 1, 0, -1, -2, -1][phase]
-        reach = [6, 3, 0, -4, -6, -2, 2, 5][phase]
-        push = [-6, -3, 1, 5, 6, 2, -2, -5][phase]
+        bob = [0, -1, -1, 0, 0, 1, 0, -1][phase]
+        lean = [0, 0, 1, 1, 0, -1, -1, 0][phase]
         self.speed_lines(phase)
-        self.run_tail(35 + lean, 11 + bob, phase)
-        self.run_body(13 + lean, 10 + bob, wave)
-        self.run_head(4 + lean, 6 + bob + min(1, wave), phase)
-        self.run_legs(16 + lean, 18 + bob, reach, push, phase)
+        self.run_tail(34 + lean, 12 + bob, phase)
+        self.run_body(12 + lean, 10 + bob, phase)
+        self.run_head(4 + lean, 7 + bob - (1 if phase == 2 else 0), phase)
+        self.run_legs(12 + lean, 19 + bob, phase)
 
     def idle(self, frame):
         phase = frame % 12
@@ -114,43 +111,54 @@ class Sprite:
         self.rect(x + 8, y + 5, 1, 2, EYE)
         self.rect(x + 6, y + 8, 2, 1, OUTLINE)
 
-    def run_body(self, x, y, wave):
-        front_lift = max(0, -wave)
-        back_lift = max(0, wave)
-        self.rect(x + 1, y + 2 + front_lift, 25, 7, OUTLINE)
-        self.rect(x, y + 5 + front_lift, 27, 4, OUTLINE)
-        self.rect(x + 3, y + 1 + back_lift, 18, 5, OUTLINE)
-        self.rect(x + 3, y + 3 + front_lift, 21, 5, FUR)
-        self.rect(x + 7, y + 4 + front_lift, 13, 3, FUR_LIGHT)
-        self.rect(x + 21, y + 4 + back_lift, 4, 3, FUR_DARK)
-        self.rect(x + 5, y + 2 + back_lift, 4, 1, MID)
+    def run_body(self, x, y, phase):
+        shoulder_lift = [0, -1, -1, 0, 0, 1, 0, -1][phase]
+        hip_lift = [0, 0, 1, 1, 0, -1, -1, 0][phase]
+        self.rect(x - 1, y + 6 + shoulder_lift, 5, 5, OUTLINE)
+        self.rect(x, y + 7 + shoulder_lift, 4, 3, FUR)
+        self.rect(x + 4, y + 2 + shoulder_lift, 18, 3, OUTLINE)
+        self.rect(x + 1, y + 4 + shoulder_lift, 25, 8, OUTLINE)
+        self.rect(x + 4, y + 11 + hip_lift, 19, 2, OUTLINE)
+        self.rect(x + 3, y + 5 + shoulder_lift, 21, 6, FUR)
+        self.rect(x + 7, y + 6 + shoulder_lift, 10, 3, FUR_LIGHT)
+        self.rect(x + 20, y + 6 + hip_lift, 4, 4, FUR_DARK)
+        self.rect(x + 6, y + 4 + shoulder_lift, 4, 1, MID)
 
-    def run_legs(self, x, y, reach, push, phase):
-        self.connected_leg(x + 2, y - 2, x + 4 + reach, y + 5 + (phase % 2), True)
-        self.connected_leg(x + 19, y - 2, x + 18 + push, y + 5 + ((phase + 1) % 2), False)
+    def run_legs(self, x, y, phase):
+        front_stride = [3, 2, 0, -2, -3, -1, 1, 3][phase]
+        rear_stride = [-3, -1, 1, 3, 2, 0, -2, -3][phase]
+        shadow_front = [-2, -1, 1, 2, 3, 1, -1, -2][phase]
+        shadow_rear = [2, 1, -1, -3, -2, 0, 1, 2][phase]
+        self.stride_leg(x + 9, y, x + 9 + shadow_front, y + 5, False, False)
+        self.stride_leg(x + 22, y, x + 22 + shadow_rear, y + 5, False, False)
+        self.stride_leg(x + 6, y, x + 6 + front_stride, y + 6 + (phase % 2), True, True)
+        self.stride_leg(x + 20, y, x + 20 + rear_stride, y + 6 + ((phase + 1) % 2), False, True)
 
-    def connected_leg(self, hip_x, hip_y, foot_x, foot_y, front):
+    def stride_leg(self, hip_x, hip_y, foot_x, foot_y, front, primary):
         knee_x = (hip_x + foot_x) // 2
         knee_y = hip_y + 3
-        self.rect(min(hip_x, knee_x), hip_y, abs(knee_x - hip_x) + 3, 3, OUTLINE)
-        self.rect(min(knee_x, foot_x), knee_y, abs(foot_x - knee_x) + 3, 3, OUTLINE)
-        self.rect(min(hip_x, knee_x) + 1, hip_y + 1, max(1, abs(knee_x - hip_x) + 1), 1, FUR if front else FUR_DARK)
-        self.rect(min(knee_x, foot_x) + 1, knee_y + 1, max(1, abs(foot_x - knee_x) + 1), 1, FUR if front else FUR_DARK)
-        self.rect(foot_x - 1, foot_y, 6, 2, OUTLINE)
-        self.rect(foot_x, foot_y - 1, 4, 2, FUR if front else FUR_DARK)
+        leg_outline = OUTLINE if primary else (10, 10, 10, 210)
+        leg_fill = FUR if front else (FUR_DARK if primary else MID)
+        self.rect(min(hip_x, knee_x), hip_y, abs(knee_x - hip_x) + 2, 2, leg_outline)
+        self.rect(min(knee_x, foot_x), knee_y, abs(foot_x - knee_x) + 2, 2, leg_outline)
+        self.rect(min(hip_x, knee_x), hip_y + 1, max(1, abs(knee_x - hip_x) + 1), 1, leg_fill)
+        self.rect(min(knee_x, foot_x), knee_y + 1, max(1, abs(foot_x - knee_x) + 1), 1, leg_fill)
+        self.rect(foot_x - 1, foot_y, 5 if primary else 4, 2, leg_outline)
+        self.rect(foot_x, foot_y - 1, 3 if primary else 2, 2, leg_fill)
 
     def run_tail(self, base_x, base_y, phase):
-        lift = [4, 2, -1, -4, -2, 1, 4, 3][phase % 8]
-        self.rect(base_x, base_y + 2 + lift, 8, 2, OUTLINE)
-        self.rect(base_x + 6, base_y - 1 + lift, 2, 6, OUTLINE)
-        self.rect(base_x + 1, base_y + 3 + lift, 6, 1, FUR_DARK)
-        self.rect(base_x + 7, base_y + lift, 1, 5, FUR)
+        lift = [1, 0, -2, -3, -2, 0, 1, 2][phase % 8]
+        self.rect(base_x, base_y + 3 + lift, 5, 2, OUTLINE)
+        self.rect(base_x + 4, base_y + 1 + lift, 4, 2, OUTLINE)
+        self.rect(base_x + 7, base_y - 1 + lift, 2, 5, OUTLINE)
+        self.rect(base_x + 1, base_y + 4 + lift, 4, 1, FUR_DARK)
+        self.rect(base_x + 5, base_y + 2 + lift, 3, 1, FUR)
+        self.rect(base_x + 8, base_y + lift, 1, 3, FUR_LIGHT)
 
     def speed_lines(self, phase):
-        alpha = 190 if phase % 2 == 0 else 90
-        self.rect(0, 23, 6, 1, (174, 174, 174, alpha))
-        self.rect(3, 21, 5, 1, (174, 174, 174, int(alpha * 0.7)))
-        self.rect(1, 18, 3, 1, (174, 174, 174, int(alpha * 0.45)))
+        alpha = 86 if phase % 2 == 0 else 46
+        self.rect(0, 24, 5, 1, (174, 174, 174, alpha))
+        self.rect(3, 22, 4, 1, (174, 174, 174, int(alpha * 0.7)))
 
     def curled_body(self, x, y, breathe):
         self.rect(x + 8, y, 14, 3, OUTLINE)

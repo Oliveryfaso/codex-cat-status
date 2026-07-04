@@ -179,17 +179,14 @@ final class AnimatedCatSprite {
 
     private func drawRunning(frame: Int) {
         let phase = frame % 8
-        let bob = [2, 0, -2, -3, -1, 1, 3, 1][phase]
-        let lean = [-1, 1, 2, 2, 0, -2, -2, 0][phase]
-        let wave = [0, 1, 2, 1, 0, -1, -2, -1][phase]
-        let reach = [6, 3, 0, -4, -6, -2, 2, 5][phase]
-        let push = [-6, -3, 1, 5, 6, 2, -2, -5][phase]
+        let bob = [0, -1, -1, 0, 0, 1, 0, -1][phase]
+        let lean = [0, 0, 1, 1, 0, -1, -1, 0][phase]
 
         drawSpeedLines(phase: phase)
-        drawRunTail(baseX: 35 + lean, baseY: 11 + bob, phase: phase)
-        drawRunBody(x: 13 + lean, y: 10 + bob, wave: wave)
-        drawRunHead(x: 4 + lean, y: 6 + bob + min(1, wave), phase: phase)
-        drawRunLegs(x: 16 + lean, y: 18 + bob, reach: reach, push: push, phase: phase)
+        drawRunTail(baseX: 34 + lean, baseY: 12 + bob, phase: phase)
+        drawRunBody(x: 12 + lean, y: 10 + bob, phase: phase)
+        drawRunHead(x: 4 + lean, y: 7 + bob - (phase == 2 ? 1 : 0), phase: phase)
+        drawRunLegs(x: 12 + lean, y: 19 + bob, phase: phase)
     }
 
     private func drawIdle(frame: Int) {
@@ -248,47 +245,60 @@ final class AnimatedCatSprite {
         rect(x + 10, y + 12, 2, 2, outline)
     }
 
-    private func drawRunBody(x: Int, y: Int, wave: Int) {
-        let frontLift = max(0, -wave)
-        let backLift = max(0, wave)
-        rect(x + 1, y + 2 + frontLift, 25, 7, outline)
-        rect(x, y + 5 + frontLift, 27, 4, outline)
-        rect(x + 3, y + 1 + backLift, 18, 5, outline)
-        rect(x + 3, y + 3 + frontLift, 21, 5, fur)
-        rect(x + 7, y + 4 + frontLift, 13, 3, furLight)
-        rect(x + 21, y + 4 + backLift, 4, 3, furDark)
-        rect(x + 5, y + 2 + backLift, 4, 1, mid)
+    private func drawRunBody(x: Int, y: Int, phase: Int) {
+        let shoulderLift = [0, -1, -1, 0, 0, 1, 0, -1][phase]
+        let hipLift = [0, 0, 1, 1, 0, -1, -1, 0][phase]
+
+        rect(x - 1, y + 6 + shoulderLift, 5, 5, outline)
+        rect(x, y + 7 + shoulderLift, 4, 3, fur)
+        rect(x + 4, y + 2 + shoulderLift, 18, 3, outline)
+        rect(x + 1, y + 4 + shoulderLift, 25, 8, outline)
+        rect(x + 4, y + 11 + hipLift, 19, 2, outline)
+        rect(x + 3, y + 5 + shoulderLift, 21, 6, fur)
+        rect(x + 7, y + 6 + shoulderLift, 10, 3, furLight)
+        rect(x + 20, y + 6 + hipLift, 4, 4, furDark)
+        rect(x + 6, y + 4 + shoulderLift, 4, 1, mid)
     }
 
-    private func drawRunLegs(x: Int, y: Int, reach: Int, push: Int, phase: Int) {
-        drawConnectedLeg(hipX: x + 2, hipY: y - 2, footX: x + 4 + reach, footY: y + 5 + (phase % 2), front: true)
-        drawConnectedLeg(hipX: x + 19, hipY: y - 2, footX: x + 18 + push, footY: y + 5 + ((phase + 1) % 2), front: false)
+    private func drawRunLegs(x: Int, y: Int, phase: Int) {
+        let frontStride = [3, 2, 0, -2, -3, -1, 1, 3][phase]
+        let rearStride = [-3, -1, 1, 3, 2, 0, -2, -3][phase]
+        let shadowFront = [-2, -1, 1, 2, 3, 1, -1, -2][phase]
+        let shadowRear = [2, 1, -1, -3, -2, 0, 1, 2][phase]
+
+        drawStrideLeg(hipX: x + 9, hipY: y, footX: x + 9 + shadowFront, footY: y + 5, front: false, primary: false)
+        drawStrideLeg(hipX: x + 22, hipY: y, footX: x + 22 + shadowRear, footY: y + 5, front: false, primary: false)
+        drawStrideLeg(hipX: x + 6, hipY: y, footX: x + 6 + frontStride, footY: y + 6 + (phase % 2), front: true, primary: true)
+        drawStrideLeg(hipX: x + 20, hipY: y, footX: x + 20 + rearStride, footY: y + 6 + ((phase + 1) % 2), front: false, primary: true)
     }
 
-    private func drawConnectedLeg(hipX: Int, hipY: Int, footX: Int, footY: Int, front: Bool) {
+    private func drawStrideLeg(hipX: Int, hipY: Int, footX: Int, footY: Int, front: Bool, primary: Bool) {
         let kneeX = (hipX + footX) / 2
         let kneeY = hipY + 3
-        rect(min(hipX, kneeX), hipY, abs(kneeX - hipX) + 3, 3, outline)
-        rect(min(kneeX, footX), kneeY, abs(footX - kneeX) + 3, 3, outline)
-        rect(min(hipX, kneeX) + 1, hipY + 1, max(1, abs(kneeX - hipX) + 1), 1, front ? fur : furDark)
-        rect(min(kneeX, footX) + 1, kneeY + 1, max(1, abs(footX - kneeX) + 1), 1, front ? fur : furDark)
-        rect(footX - 1, footY, 6, 2, outline)
-        rect(footX, footY - 1, 4, 2, front ? fur : furDark)
+        let legOutline = primary ? outline : outline.withAlphaComponent(0.82)
+        let legFill = front ? fur : (primary ? furDark : mid)
+        rect(min(hipX, kneeX), hipY, abs(kneeX - hipX) + 2, 2, legOutline)
+        rect(min(kneeX, footX), kneeY, abs(footX - kneeX) + 2, 2, legOutline)
+        rect(min(hipX, kneeX), hipY + 1, max(1, abs(kneeX - hipX) + 1), 1, legFill)
+        rect(min(kneeX, footX), kneeY + 1, max(1, abs(footX - kneeX) + 1), 1, legFill)
+        rect(footX - 1, footY, primary ? 5 : 4, 2, legOutline)
+        rect(footX, footY - 1, primary ? 3 : 2, 2, legFill)
     }
 
     private func drawRunTail(baseX: Int, baseY: Int, phase: Int) {
-        let lift = [4, 2, -1, -4, -2, 1, 4, 3][phase % 8]
-        rect(baseX, baseY + 2 + lift, 8, 2, outline)
-        rect(baseX + 6, baseY - 1 + lift, 2, 6, outline)
-        rect(baseX + 1, baseY + 3 + lift, 6, 1, furDark)
-        rect(baseX + 7, baseY + lift, 1, 5, fur)
+        let lift = [1, 0, -2, -3, -2, 0, 1, 2][phase % 8]
+        rect(baseX, baseY + 3 + lift, 5, 2, outline)
+        rect(baseX + 4, baseY + 1 + lift, 4, 2, outline)
+        rect(baseX + 7, baseY - 1 + lift, 2, 5, outline)
+        rect(baseX + 1, baseY + 4 + lift, 4, 1, furDark)
+        rect(baseX + 5, baseY + 2 + lift, 3, 1, fur)
+        rect(baseX + 8, baseY + lift, 1, 3, furLight)
     }
 
     private func drawSpeedLines(phase: Int) {
-        let alpha = phase % 2 == 0 ? 0.75 : 0.35
-        rect(0, 23, 6, 1, mid.withAlphaComponent(alpha))
-        rect(3, 21, 5, 1, mid.withAlphaComponent(alpha * 0.7))
-        rect(1, 18, 3, 1, mid.withAlphaComponent(alpha * 0.45))
+        let alpha = phase % 2 == 0 ? 0.34 : 0.18
+        rect(0, 24, 5, 1, mid.withAlphaComponent(alpha))
+        rect(3, 22, 4, 1, mid.withAlphaComponent(alpha * 0.7))
     }
 
     private func drawCurledBody(x: Int, y: Int, breathe: Int) {
