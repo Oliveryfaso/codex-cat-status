@@ -923,6 +923,9 @@ final class CodexStatusProbe {
 
 final class TokenDetailsPanel: NSView {
     var onQuit: (() -> Void)?
+    private let panelWidth = 360
+    private let panelHeight = 250
+    private let contentInset = 28
 
     var snapshot: StatusSnapshot? {
         didSet {
@@ -931,7 +934,7 @@ final class TokenDetailsPanel: NSView {
     }
 
     override var intrinsicContentSize: NSSize {
-        NSSize(width: 336, height: 224)
+        NSSize(width: panelWidth, height: panelHeight)
     }
 
     override init(frame frameRect: NSRect) {
@@ -956,13 +959,13 @@ final class TokenDetailsPanel: NSView {
         }
 
         let token = snapshot.tokenUsage
-        drawText("Codex Cat", x: 24, y: 22, size: 17, weight: .semibold, color: palette.primaryText)
-        drawStatusPill(snapshot.state.rawValue.uppercased(), x: 242, y: 20, width: 68, state: snapshot.state)
+        drawText("Codex Cat", x: contentInset, y: 24, size: 17, weight: .semibold, color: palette.primaryText)
+        drawStatusPill(snapshot.state.rawValue.uppercased(), x: Int(bounds.width) - contentInset - 76, y: 22, width: 76, state: snapshot.state)
 
         drawText(
             "conv \(snapshot.activeConversation)  ·  pending \(snapshot.pendingCalls)  ·  review \(snapshot.reviewSignals)",
-            x: 24,
-            y: 51,
+            x: contentInset,
+            y: 55,
             size: 11,
             color: palette.secondaryText
         )
@@ -971,20 +974,20 @@ final class TokenDetailsPanel: NSView {
             title: "5h quota",
             percent: token.primaryLimit?.remainingPercent,
             detail: resetDetail(token.primaryLimit),
-            y: 79
+            y: 86
         )
         drawQuotaRow(
             title: "7d quota",
             percent: token.secondaryLimit?.remainingPercent,
             detail: resetDetail(token.secondaryLimit),
-            y: 135
+            y: 144
         )
 
         drawText(
-            "Local quota estimate · may differ from Codex UI",
-            x: 24,
-            y: 193,
-            size: 10,
+            "Local quota estimate",
+            x: contentInset,
+            y: 212,
+            size: 9.5,
             color: palette.tertiaryText
         )
         drawQuitButton()
@@ -1004,7 +1007,7 @@ final class TokenDetailsPanel: NSView {
         bounds.fill()
 
         let cardRect = bounds.insetBy(dx: 12, dy: 10)
-        let cardPath = NSBezierPath(roundedRect: cardRect, xRadius: 18, yRadius: 18)
+        let cardPath = NSBezierPath(roundedRect: cardRect, xRadius: 20, yRadius: 20)
 
         NSGraphicsContext.saveGraphicsState()
         let shadow = NSShadow()
@@ -1022,16 +1025,16 @@ final class TokenDetailsPanel: NSView {
         cardPath.lineWidth = 1
         cardPath.stroke()
 
-        let highlight = rectFromTop(x: 24, y: 16, width: Int(bounds.width) - 48, height: 1)
+        let highlight = rectFromTop(x: contentInset, y: 16, width: Int(bounds.width) - contentInset * 2, height: 1)
         palette.cardHighlight.setFill()
         NSBezierPath(roundedRect: highlight, xRadius: 0.5, yRadius: 0.5).fill()
     }
 
     private func drawQuotaRow(title: String, percent: Double?, detail: String, y: Int) {
-        let x = 24
-        let width = Int(bounds.width) - 48
+        let x = contentInset
+        let width = Int(bounds.width) - contentInset * 2
         drawText(title, x: x, y: y, size: 12, weight: .medium, color: palette.primaryText)
-        drawRightText(formatPercent(percent ?? 0), right: 24, y: y - 1, size: 16, weight: .semibold, color: palette.primaryText)
+        drawRightText(formatPercent(percent ?? 0), right: contentInset, y: y - 1, size: 16, weight: .semibold, color: palette.primaryText)
         drawBar(percent: percent, x: x, y: y + 25, width: width, height: 8, color: color(for: percent))
         drawText(detail, x: x, y: y + 40, size: 9.5, color: palette.secondaryText)
     }
@@ -1162,7 +1165,7 @@ final class TokenDetailsPanel: NSView {
     }
 
     private var quitButtonRect: NSRect {
-        rectFromTop(x: Int(bounds.width) - 76, y: 188, width: 52, height: 24)
+        rectFromTop(x: Int(bounds.width) - contentInset - 56, y: 204, width: 56, height: 26)
     }
 
     private func rectFromTop(x: Int, y: Int, width: Int, height: Int) -> NSRect {
@@ -1235,7 +1238,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var menuCloseTimer: Timer?
     private var menuMouseOutsideSince: Date?
     private let menuAutoCloseDelay: TimeInterval = 1.5
-    private let detailsPanel = TokenDetailsPanel(frame: NSRect(x: 0, y: 0, width: 336, height: 224))
+    private let detailsPanel = TokenDetailsPanel(frame: NSRect(x: 0, y: 0, width: 360, height: 250))
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
