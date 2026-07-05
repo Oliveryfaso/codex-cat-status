@@ -645,6 +645,8 @@ final class CodexStatusProbe {
         var today = 0
         var week = 0
         var latest = TokenUsageSnapshot.empty
+        var primaryBuckets: [TokenBucketSnapshot] = []
+        var secondaryBuckets: [TokenBucketSnapshot] = []
 
         for state in states {
             for event in state.tokenEventsByTurn.values {
@@ -661,6 +663,13 @@ final class CodexStatusProbe {
                latest.lastUpdated == nil || candidateUpdated > latest.lastUpdated! {
                 latest = candidate
             }
+
+            if let primary = candidate.primaryLimit {
+                primaryBuckets.append(primary)
+            }
+            if let secondary = candidate.secondaryLimit {
+                secondaryBuckets.append(secondary)
+            }
         }
 
         return TokenUsageSnapshot(
@@ -671,10 +680,38 @@ final class CodexStatusProbe {
             totalSessionTokens: latest.totalSessionTokens,
             observedTodayTokens: today,
             observedWeekTokens: week,
-            primaryLimit: latest.primaryLimit,
-            secondaryLimit: latest.secondaryLimit,
+            primaryLimit: aggregateQuotaBucket(primaryBuckets, fallback: latest.primaryLimit, now: now),
+            secondaryLimit: aggregateQuotaBucket(secondaryBuckets, fallback: latest.secondaryLimit, now: now),
             lastUpdated: latest.lastUpdated
         )
+    }
+
+    private func aggregateQuotaBucket(
+        _ buckets: [TokenBucketSnapshot],
+        fallback: TokenBucketSnapshot?,
+        now: Date
+    ) -> TokenBucketSnapshot? {
+        guard !buckets.isEmpty else { return fallback }
+
+        let activeBuckets = buckets.filter { bucket in
+            guard let resetsAt = bucket.resetsAt else { return true }
+            return resetsAt > now.addingTimeInterval(-60)
+        }
+        let pool = activeBuckets.isEmpty ? buckets : activeBuckets
+
+        guard let newestReset = pool.compactMap(\.resetsAt).max() else {
+            return pool.max { $0.usedPercent < $1.usedPercent } ?? fallback
+        }
+
+        let currentWindowBuckets = pool.filter { bucket in
+            guard let resetsAt = bucket.resetsAt else { return false }
+            let sameWindow = fallback == nil || bucket.windowMinutes == fallback!.windowMinutes
+            let sameReset = abs(resetsAt.timeIntervalSince(newestReset)) <= 120
+            return sameWindow && sameReset
+        }
+
+        let candidates = currentWindowBuckets.isEmpty ? pool : currentWindowBuckets
+        return candidates.max { $0.usedPercent < $1.usedPercent } ?? fallback
     }
 
     private func sessionSignals(from state: SessionActivityState) -> (active: Bool, pending: PendingCallSignals) {
@@ -981,13 +1018,13 @@ final class TokenDetailsPanel: NSView {
         )
 
         drawQuotaRow(
-            title: "5h quota",
+            title: "5h remaining",
             percent: token.primaryLimit?.remainingPercent,
             detail: resetDetail(token.primaryLimit),
             y: 86
         )
         drawQuotaRow(
-            title: "7d quota",
+            title: "7d remaining",
             percent: token.secondaryLimit?.remainingPercent,
             detail: resetDetail(token.secondaryLimit),
             y: 144
