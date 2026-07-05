@@ -143,23 +143,24 @@ func formatBattery(_ percent: Double?, width: Int = 10, includePercent: Bool = t
 }
 
 final class AnimatedCatSprite {
-    private let width = 44
+    private let width = 52
     private let height = 28
 
-    private let outline = NSColor(calibratedWhite: 0.04, alpha: 1)
-    private let fur = NSColor(calibratedWhite: 0.90, alpha: 1)
-    private let furLight = NSColor.white
-    private let furDark = NSColor(calibratedWhite: 0.36, alpha: 1)
-    private let mid = NSColor(calibratedWhite: 0.68, alpha: 1)
-    private let eye = NSColor(calibratedWhite: 0.03, alpha: 1)
-    private let signal = NSColor(calibratedWhite: 0.95, alpha: 1)
+    private let outline = NSColor(calibratedRed: 0.13, green: 0.12, blue: 0.11, alpha: 1)
+    private let fur = NSColor(calibratedRed: 0.98, green: 0.96, blue: 0.91, alpha: 1)
+    private let cream = NSColor(calibratedRed: 1.0, green: 0.86, blue: 0.60, alpha: 1)
+    private let shade = NSColor(calibratedRed: 0.66, green: 0.57, blue: 0.47, alpha: 1)
+    private let pink = NSColor(calibratedRed: 1.0, green: 0.63, blue: 0.74, alpha: 1)
+    private let shadow = NSColor.black.withAlphaComponent(0.22)
+    private let signal = NSColor(calibratedRed: 1.0, green: 0.86, blue: 0.26, alpha: 1)
+    private let sleep = NSColor(calibratedWhite: 0.74, alpha: 0.84)
 
     func image(state: CatState, frame: Int) -> NSImage {
         let image = NSImage(size: NSSize(width: width, height: height))
         image.isTemplate = false
         image.lockFocus()
 
-        NSGraphicsContext.current?.shouldAntialias = false
+        NSGraphicsContext.current?.shouldAntialias = true
         NSGraphicsContext.current?.imageInterpolation = .none
         NSColor.clear.setFill()
         NSRect(x: 0, y: 0, width: width, height: height).fill()
@@ -179,14 +180,17 @@ final class AnimatedCatSprite {
 
     private func drawRunning(frame: Int) {
         let phase = frame % 8
-        let bob = [0, -1, -1, 0, 0, 1, 0, -1][phase]
-        let lean = [0, 0, 1, 1, 0, -1, -1, 0][phase]
+        let bob = [0, -1, -2, -1, 0, 1, 0, -1][phase]
+        let lean = [0, 1, 1, 0, -1, -1, 0, 0][phase]
+        let stretch = [0, 1, 2, 1, 0, -1, 0, 1][phase]
+        let arch = [0, -1, -2, -1, 0, 1, 0, -1][phase]
 
+        oval(14, 24, 30, 3, shadow)
         drawSpeedLines(phase: phase)
-        drawRunTail(baseX: 32 + lean, baseY: 12 + bob, phase: phase)
-        drawRunBody(x: 12 + lean, y: 11 + bob, phase: phase)
-        drawRunHead(x: 5 + lean, y: 8 + bob - (phase == 2 ? 1 : 0), phase: phase)
-        drawRunLegs(x: 12 + lean, y: 18 + bob, phase: phase)
+        drawRunTail(x: 34 + lean + stretch, y: 9 + bob + arch, phase: phase)
+        drawRunBody(x: 15 + lean, y: 10 + bob + arch, stretch: stretch)
+        drawRunHead(x: 3 + lean, y: 6 + bob + arch, phase: phase, mood: .run)
+        drawRunLegs(x: 20 + lean, y: 19 + bob, stretch: stretch, phase: phase)
     }
 
     private func drawIdle(frame: Int) {
@@ -194,211 +198,217 @@ final class AnimatedCatSprite {
         let breathe = phase < 6 ? 0 : 1
         let sleepShift = phase < 6 ? 0 : 2
 
-        drawCurledBody(x: 9, y: 10, breathe: breathe)
-        drawCurledHead(x: 8, y: 9 + breathe)
-        drawCurledTail(x: 23, y: 13 + breathe)
+        oval(11, 24, 31, 3, shadow)
+        drawCurledBody(x: 10, y: 11 + breathe, breathe: breathe)
+        drawRunHead(x: 7, y: 6 + breathe, phase: phase, mood: .sleep)
+        drawCurledTail(x: 34, y: 12 + breathe)
 
         if phase < 6 {
-            rect(30 + sleepShift, 4, 2, 1, signal)
-            rect(31 + sleepShift, 3, 2, 1, signal)
-            rect(30 + sleepShift, 2, 4, 1, signal)
+            rect(43 + sleepShift, 6, 3, 1, sleep)
+            rect(45 + sleepShift, 4, 3, 1, sleep)
+            rect(43 + sleepShift, 2, 5, 1, sleep)
         } else {
-            rect(31 + sleepShift, 3, 2, 1, signal)
-            rect(33 + sleepShift, 2, 2, 1, signal)
-            rect(31 + sleepShift, 1, 4, 1, signal)
+            rect(44 + sleepShift, 5, 3, 1, sleep)
+            rect(46 + sleepShift, 3, 3, 1, sleep)
+            rect(44 + sleepShift, 1, 5, 1, sleep)
         }
     }
 
     private func drawReview(frame: Int) {
         let phase = frame % 4
-        let wobble = [-1, 1, 2, -2][phase]
+        let wobble = [-1, 1, 0, -1][phase]
         let pop = [0, -1, 0, 1][phase]
 
-        drawSittingBody(x: 16 + wobble, y: 13 + pop)
-        drawReviewHead(x: 11 + wobble, y: 6 + pop, phase: phase)
-        drawSittingTail(x: 29 + wobble, y: 18 + pop, phase: phase)
-        drawReviewMark(x: 35 - wobble, y: 2 + pop, phase: phase)
+        oval(17, 24, 24, 3, shadow)
+        drawSittingBody(x: 21 + wobble, y: 11 + pop)
+        drawRunHead(x: 14 + wobble, y: 4 + pop, phase: phase, mood: .alert)
+        drawSittingTail(x: 35 + wobble, y: 15 + pop, phase: phase)
+        drawReviewMark(x: 45 - wobble, y: 3 + pop, phase: phase)
     }
 
-    private func drawRunHead(x: Int, y: Int, phase: Int) {
-        rect(x + 1, y + 2, 8, 7, outline)
-        rect(x + 2, y + 3, 6, 5, fur)
-        rect(x + 2, y + 1, 2, 3, outline)
-        rect(x + 7, y + 1, 2, 3, outline)
-        rect(x + 3, y + 4, 4, 2, furLight)
-        rect(x + 4, y + 6, 1, 1, mid)
-        rect(x + 3, y + 5, 1, 1, eye)
-        rect(x + 7, y + 5, 1, 1, eye)
-        rect(x + 5, y + 8, 2, 1, outline)
+    private enum HeadMood {
+        case run
+        case sleep
+        case alert
     }
 
-    private func drawReviewHead(x: Int, y: Int, phase: Int) {
-        rect(x + 1, y + 2, 10, 9, outline)
-        rect(x + 2, y + 3, 8, 7, fur)
-        rect(x + 2, y, 2, 4, outline)
-        rect(x + 8, y, 2, 4, outline)
-        rect(x + 4, y + 5, 5, 2, furLight)
-        rect(x + 4, y + 6, 2, 2, eye)
-        rect(x + 8, y + 6, 2, 2, eye)
-        rect(x + 5, y + 9, 3, 1, signal)
-        rect(x + 3, y + 11, 2, 2, outline)
-        rect(x + 9, y + 11, 2, 2, outline)
+    private func drawRunHead(x: Int, y: Int, phase: Int, mood: HeadMood) {
+        triangle([(x + 5, y + 1), (x + 9, y + 8), (x + 2, y + 8)], outline)
+        triangle([(x + 15, y + 1), (x + 18, y + 8), (x + 11, y + 8)], outline)
+        oval(x + 2, y + 5, 17, 16, outline)
+        oval(x + 4, y + 7, 13, 12, fur)
+        triangle([(x + 6, y + 5), (x + 8, y + 8), (x + 5, y + 8)], pink)
+        triangle([(x + 14, y + 5), (x + 16, y + 8), (x + 12, y + 8)], pink)
+        oval(x + 8, y + 12, 6, 5, cream)
+        rect(x + 10, y + 16, 1, 1, pink)
+
+        switch mood {
+        case .sleep:
+            rect(x + 7, y + 15, 3, 1, outline)
+            rect(x + 13, y + 15, 3, 1, outline)
+            rect(x + 10, y + 18, 3, 1, outline.withAlphaComponent(0.72))
+        case .alert:
+            rect(x + 7, y + 13, 3, 3, outline)
+            rect(x + 13, y + 13, 3, 3, outline)
+            rect(x + 10, y + 18, 4, 2, outline)
+        case .run:
+            let blink = phase == 5
+            rect(x + 7, y + 13, 3, blink ? 1 : 3, outline)
+            rect(x + 13, y + 13, 3, blink ? 1 : 3, outline)
+        }
     }
 
-    private func drawRunBody(x: Int, y: Int, phase: Int) {
-        let shoulder = [0, -1, -1, 0, 1, 0, -1, -1][phase]
-        let waist = [1, 0, -1, -1, 0, 1, 0, -1][phase]
-        let hip = [0, 1, 0, -1, -1, 0, 1, 0][phase]
-
-        rect(x + 1, y + 4 + shoulder, 6, 2, outline)
-        rect(x + 7, y + 3 + waist, 9, 2, outline)
-        rect(x + 16, y + 4 + hip, 6, 2, outline)
-        rect(x + 1, y + 6 + shoulder, 21, 5, outline)
-        rect(x + 3, y + 6 + shoulder, 17, 4, fur)
-        rect(x + 6, y + 6 + waist, 8, 2, furLight)
-        rect(x + 18, y + 7 + hip, 3, 3, furDark)
-        rect(x + 3, y + 10 + waist, 15, 1, outline)
-        rect(x + 1, y + 8 + shoulder, 2, 2, fur)
-        rect(x + 6, y + 5 + waist, 3, 1, mid)
+    private func drawRunBody(x: Int, y: Int, stretch: Int) {
+        oval(x, y, 24 + stretch, 13, outline)
+        oval(x + 2, y + 2, 20 + stretch, 9, fur)
+        oval(x + 7, y + 4, 11 + stretch, 5, cream)
+        oval(x + 18 + stretch, y + 4, 7, 7, shade)
+        rect(x + 5, y + 12, 14 + stretch, 1, outline)
     }
 
-    private func drawRunLegs(x: Int, y: Int, phase: Int) {
-        let frontStride = [4, 3, 1, -2, -4, -2, 1, 3][phase]
-        let rearStride = [-4, -2, 1, 4, 3, 0, -2, -4][phase]
-        let shadowFront = [-2, -1, 1, 3, 2, 0, -1, -2][phase]
-        let shadowRear = [2, 1, -1, -3, -2, 0, 1, 2][phase]
+    private func drawRunLegs(x: Int, y: Int, stretch: Int, phase: Int) {
+        let frontStride = [5, 3, 1, -3, -5, -2, 2, 4][phase]
+        let rearStride = [-5, -3, 2, 5, 3, 0, -3, -5][phase]
+        let shadowFront = [-2, 0, 3, 4, 2, 0, -1, -2][phase]
+        let shadowRear = [3, 1, -3, -4, -2, 0, 2, 3][phase]
 
-        drawStrideLeg(hipX: x + 7, hipY: y, footX: x + 7 + shadowFront, footY: y + 5, front: false, primary: false)
-        drawStrideLeg(hipX: x + 19, hipY: y, footX: x + 19 + shadowRear, footY: y + 5, front: false, primary: false)
-        drawStrideLeg(hipX: x + 5, hipY: y, footX: x + 5 + frontStride, footY: y + 6 + (phase % 2), front: true, primary: true)
-        drawStrideLeg(hipX: x + 18, hipY: y, footX: x + 18 + rearStride, footY: y + 6 + ((phase + 1) % 2), front: false, primary: true)
+        drawStrideLeg(hipX: x + 5, hipY: y, footX: x + 5 + shadowFront, footY: y + 5, fill: shade, primary: false)
+        drawStrideLeg(hipX: x + 19 + stretch, hipY: y, footX: x + 19 + stretch + shadowRear, footY: y + 5, fill: shade, primary: false)
+        drawStrideLeg(hipX: x + 2, hipY: y, footX: x + 2 + frontStride, footY: y + 7 + (phase % 2), fill: fur, primary: true)
+        drawStrideLeg(hipX: x + 16 + stretch, hipY: y, footX: x + 16 + stretch + rearStride, footY: y + 7 + ((phase + 1) % 2), fill: shade, primary: true)
     }
 
-    private func drawStrideLeg(hipX: Int, hipY: Int, footX: Int, footY: Int, front: Bool, primary: Bool) {
+    private func drawStrideLeg(hipX: Int, hipY: Int, footX: Int, footY: Int, fill: NSColor, primary: Bool) {
         let kneeX = (hipX + footX) / 2
         let kneeY = hipY + 3
-        let legOutline = primary ? outline : outline.withAlphaComponent(0.82)
-        let legFill = front ? fur : (primary ? furDark : mid)
-        rect(min(hipX, kneeX), hipY, abs(kneeX - hipX) + 1, primary ? 2 : 1, legOutline)
-        rect(min(kneeX, footX), kneeY, abs(footX - kneeX) + 1, primary ? 2 : 1, legOutline)
-        rect(min(hipX, kneeX), hipY + 1, max(1, abs(kneeX - hipX) + 1), 1, legFill)
-        rect(min(kneeX, footX), kneeY + 1, max(1, abs(footX - kneeX) + 1), 1, legFill)
-        rect(footX - 1, footY, primary ? 4 : 3, 1, legOutline)
-        rect(footX, footY - 1, primary ? 2 : 1, 1, legFill)
+        let legWidth = primary ? 2 : 1
+        line([(hipX, hipY), (kneeX, kneeY), (footX, footY)], outline, width: legWidth + 1)
+        line([(hipX, hipY + 1), (kneeX, kneeY + 1), (footX, footY)], fill, width: max(1, legWidth - 1))
+        oval(footX - 2, footY - 1, primary ? 6 : 4, 3, outline)
+        oval(footX - 1, footY - 1, primary ? 4 : 3, 2, fill)
     }
 
-    private func drawRunTail(baseX: Int, baseY: Int, phase: Int) {
-        let lift = [2, 1, -1, -3, -2, 0, 2, 3][phase % 8]
-        rect(baseX, baseY + 4 + lift, 5, 1, outline)
-        rect(baseX + 4, baseY + 2 + lift, 4, 1, outline)
-        rect(baseX + 7, baseY + lift, 2, 4, outline)
-        rect(baseX + 1, baseY + 5 + lift, 3, 1, furDark)
-        rect(baseX + 5, baseY + 3 + lift, 3, 1, fur)
-        rect(baseX + 8, baseY + 1 + lift, 1, 2, furLight)
+    private func drawRunTail(x: Int, y: Int, phase: Int) {
+        let lift = [3, 2, -1, -3, -2, 0, 2, 3][phase % 8]
+        line([(x, y + 8 + lift), (x + 4, y + 5 + lift), (x + 8, y + lift), (x + 8, y - 3 + lift)], outline, width: 4)
+        line([(x, y + 8 + lift), (x + 4, y + 5 + lift), (x + 8, y + lift), (x + 8, y - 2 + lift)], fur, width: 1)
     }
 
     private func drawSpeedLines(phase: Int) {
         let alpha = phase % 2 == 0 ? 0.34 : 0.18
-        rect(0, 24, 5, 1, mid.withAlphaComponent(alpha))
-        rect(3, 22, 4, 1, mid.withAlphaComponent(alpha * 0.7))
+        rect(2, 25, 7, 1, shade.withAlphaComponent(alpha))
+        rect(6, 22, 5, 1, shade.withAlphaComponent(alpha * 0.7))
     }
 
     private func drawCurledBody(x: Int, y: Int, breathe: Int) {
-        rect(x + 9, y + 2, 12, 2, outline)
-        rect(x + 5, y + 4, 20, 4, outline)
-        rect(x + 3, y + 8, 24, 7 + breathe, outline)
-        rect(x + 5, y + 15 + breathe, 19, 4, outline)
-        rect(x + 10, y + 19 + breathe, 10, 2, outline)
-
-        rect(x + 6, y + 6, 18, 10 + breathe, fur)
-        rect(x + 10, y + 7, 10, 6 + breathe, furLight)
-        rect(x + 18, y + 11, 4, 2, mid)
-        rect(x + 10, y + 17 + breathe, 10, 1, furDark)
-    }
-
-    private func drawCurledHead(x: Int, y: Int) {
-        rect(x + 1, y + 2, 9, 8, outline)
-        rect(x + 2, y + 3, 7, 6, fur)
-        rect(x + 2, y, 2, 4, outline)
-        rect(x + 8, y, 2, 4, outline)
-        rect(x + 4, y + 5, 4, 2, furLight)
-        rect(x + 4, y + 7, 1, 1, outline)
-        rect(x + 7, y + 7, 1, 1, outline)
+        oval(x, y, 31, 16 + breathe, outline)
+        oval(x + 3, y + 2, 26, 12 + breathe, fur)
+        oval(x + 10, y + 4, 14, 7 + breathe, cream)
+        oval(x + 23, y + 5, 7, 7, shade)
+        rect(x + 6, y + 15 + breathe, 19, 2, outline)
     }
 
     private func drawCurledTail(x: Int, y: Int) {
-        rect(x, y, 8, 2, outline)
-        rect(x + 6, y - 4, 2, 6, outline)
-        rect(x + 2, y + 2, 7, 2, outline)
-        rect(x + 1, y + 1, 6, 1, furDark)
-        rect(x + 7, y - 3, 1, 4, fur)
-        rect(x + 3, y + 3, 5, 1, furDark)
+        line([(x, y + 11), (x + 7, y + 8), (x + 7, y + 2)], outline, width: 4)
+        line([(x, y + 11), (x + 6, y + 8), (x + 6, y + 3)], fur, width: 1)
     }
 
     private func drawSittingBody(x: Int, y: Int) {
-        rect(x + 3, y, 10, 12, outline)
-        rect(x + 1, y + 6, 14, 7, outline)
-        rect(x + 4, y + 1, 8, 11, fur)
-        rect(x + 6, y + 3, 5, 7, furLight)
-        rect(x + 1, y + 13, 5, 2, outline)
-        rect(x + 10, y + 13, 5, 2, outline)
-        rect(x + 2, y + 12, 3, 1, furDark)
-        rect(x + 11, y + 12, 3, 1, furDark)
-        rect(x - 1, y + 7, 3, 1, outline)
-        rect(x + 14, y + 7, 3, 1, outline)
+        oval(x, y, 16, 20, outline)
+        oval(x + 3, y + 2, 11, 16, fur)
+        oval(x + 6, y + 6, 7, 10, cream)
+        oval(x - 2, y + 16, 8, 5, outline)
+        oval(x + 12, y + 16, 9, 5, outline)
+        rect(x + 1, y + 19, 5, 1, shade)
+        rect(x + 15, y + 19, 5, 1, shade)
     }
 
     private func drawSittingTail(x: Int, y: Int, phase: Int) {
         let curl = [0, 1, 0, -1][phase]
-        rect(x, y + curl, 7, 2, outline)
-        rect(x + 5, y - 4 + curl, 2, 6, outline)
-        rect(x + 1, y + 1 + curl, 5, 1, furDark)
-        rect(x + 6, y - 3 + curl, 1, 4, fur)
+        line([(x, y + 8 + curl), (x + 7, y + 5 + curl), (x + 10, y + curl)], outline, width: 4)
+        line([(x, y + 8 + curl), (x + 7, y + 5 + curl), (x + 9, y + 1 + curl)], fur, width: 1)
     }
 
     private func drawReviewMark(x: Int, y: Int, phase: Int) {
         let hop = [0, -1, 0, 1][phase]
-        rect(x, y + hop, 3, 13, signal)
-        rect(x, y + 16 + hop, 3, 3, signal)
-        rect(x - 1, y + hop, 1, 13, outline.withAlphaComponent(0.55))
-        rect(x + 3, y + hop, 1, 13, outline.withAlphaComponent(0.55))
+        rect(x, y + hop, 5, 16, outline)
+        rect(x + 1, y + 1 + hop, 3, 13, signal)
+        rect(x, y + 20 + hop, 5, 5, outline)
+        rect(x + 1, y + 21 + hop, 3, 3, signal)
+    }
+
+    private func oval(_ x: Int, _ yFromTop: Int, _ w: Int, _ h: Int, _ color: NSColor) {
+        color.setFill()
+        NSBezierPath(ovalIn: rectFromTop(x, yFromTop, w, h)).fill()
+    }
+
+    private func triangle(_ points: [(Int, Int)], _ color: NSColor) {
+        guard let first = points.first else { return }
+        let path = NSBezierPath()
+        path.move(to: pointFromTop(first.0, first.1))
+        for point in points.dropFirst() {
+            path.line(to: pointFromTop(point.0, point.1))
+        }
+        path.close()
+        color.setFill()
+        path.fill()
+    }
+
+    private func line(_ points: [(Int, Int)], _ color: NSColor, width: Int) {
+        guard let first = points.first else { return }
+        let path = NSBezierPath()
+        path.move(to: pointFromTop(first.0, first.1))
+        for point in points.dropFirst() {
+            path.line(to: pointFromTop(point.0, point.1))
+        }
+        path.lineWidth = CGFloat(width)
+        path.lineCapStyle = .round
+        path.lineJoinStyle = .round
+        color.setStroke()
+        path.stroke()
     }
 
     private func rect(_ x: Int, _ yFromTop: Int, _ w: Int, _ h: Int, _ color: NSColor) {
         color.setFill()
-        NSRect(
-            x: CGFloat(x),
-            y: CGFloat(height - yFromTop - h),
-            width: CGFloat(w),
-            height: CGFloat(h)
-        ).fill()
+        rectFromTop(x, yFromTop, w, h).fill()
+    }
+
+    private func rectFromTop(_ x: Int, _ yFromTop: Int, _ w: Int, _ h: Int) -> NSRect {
+        NSRect(x: CGFloat(x), y: CGFloat(height - yFromTop - h), width: CGFloat(w), height: CGFloat(h))
+    }
+
+    private func pointFromTop(_ x: Int, _ yFromTop: Int) -> NSPoint {
+        NSPoint(x: CGFloat(x), y: CGFloat(height - yFromTop))
     }
 }
 
 final class PixelStatusBadge {
-    private let width = 60
+    private let width = 63
     private let height = 28
+    private let catDrawWidth = 46
+    private let catDrawHeight = 25
     private let cat = AnimatedCatSprite()
 
-    private let outline = NSColor(calibratedWhite: 0.04, alpha: 1)
-    private let shell = NSColor(calibratedWhite: 0.82, alpha: 1)
-    private let well = NSColor(calibratedWhite: 0.18, alpha: 1)
-    private let fill = NSColor(calibratedWhite: 0.96, alpha: 1)
-    private let dimFill = NSColor(calibratedWhite: 0.62, alpha: 1)
-    private let shine = NSColor.white
+    private let outline = NSColor(calibratedRed: 0.13, green: 0.12, blue: 0.11, alpha: 1)
+    private let shell = NSColor(calibratedRed: 1.0, green: 0.93, blue: 0.75, alpha: 1)
+    private let well = NSColor(calibratedRed: 0.35, green: 0.27, blue: 0.22, alpha: 1)
+    private let fill = NSColor(calibratedRed: 1.0, green: 0.83, blue: 0.28, alpha: 1)
+    private let midFill = NSColor(calibratedRed: 1.0, green: 0.63, blue: 0.33, alpha: 1)
+    private let lowFill = NSColor(calibratedRed: 1.0, green: 0.36, blue: 0.42, alpha: 1)
+    private let shine = NSColor(calibratedRed: 1.0, green: 0.98, blue: 0.88, alpha: 1)
 
     func image(state: CatState, frame: Int, tokenUsage: TokenUsageSnapshot) -> NSImage {
         let image = NSImage(size: NSSize(width: width, height: height))
         image.isTemplate = false
         image.lockFocus()
 
-        NSGraphicsContext.current?.shouldAntialias = false
+        NSGraphicsContext.current?.shouldAntialias = true
         NSGraphicsContext.current?.imageInterpolation = .none
         NSColor.clear.setFill()
         NSRect(x: 0, y: 0, width: width, height: height).fill()
 
         cat.image(state: state, frame: frame).draw(
-            in: NSRect(x: 0, y: 0, width: 44, height: 28),
+            in: NSRect(x: 0, y: 1, width: catDrawWidth, height: catDrawHeight),
             from: .zero,
             operation: .sourceOver,
             fraction: 1
@@ -410,9 +420,9 @@ final class PixelStatusBadge {
     }
 
     private func drawBattery(percent: Double?, frame: Int) {
-        let x = 49
+        let x = 52
         let y = 3
-        let bodyWidth = 9
+        let bodyWidth = 8
         let bodyHeight = 22
         let hasKnownPercent = percent != nil
         let clamped = min(100, max(0, percent ?? 0))
@@ -422,37 +432,41 @@ final class PixelStatusBadge {
             fillHeight = 2
         }
         let pulse = frame % 8 < 4
-        let fillColor = clamped < 20 && pulse ? fill : (clamped < 45 ? dimFill : fill)
-        let outlineColor = clamped < 20 && pulse ? shine : outline
+        let fillColor = clamped < 20 ? (pulse ? shine : lowFill) : (clamped < 45 ? midFill : fill)
+        let outlineColor = clamped < 20 && pulse ? lowFill : outline
 
-        rect(x + 3, y - 2, 3, 2, outlineColor)
-        rect(x, y, bodyWidth, bodyHeight, outlineColor)
-        rect(x + 1, y + 1, bodyWidth - 2, bodyHeight - 2, shell)
-        rect(x + 2, y + 2, bodyWidth - 4, bodyHeight - 4, well)
+        capsule(x + 2, y - 2, 4, 2, outlineColor)
+        capsule(x, y, bodyWidth, bodyHeight, outlineColor)
+        capsule(x + 1, y + 1, bodyWidth - 2, bodyHeight - 2, shell)
+        capsule(x + 2, y + 3, bodyWidth - 4, bodyHeight - 6, well)
 
         if fillHeight > 0 {
-            let fillY = y + bodyHeight - 2 - fillHeight
-            rect(x + 2, fillY, bodyWidth - 4, fillHeight, fillColor)
+            let fillY = y + bodyHeight - 3 - fillHeight
+            capsule(x + 2, fillY, bodyWidth - 4, fillHeight, fillColor)
             let scanOffset = frame % max(1, innerHeight)
-            let scanY = y + bodyHeight - 3 - scanOffset
-            if scanY >= fillY, scanY < y + bodyHeight - 2 {
-                rect(x + 3, scanY, bodyWidth - 6, 1, shine.withAlphaComponent(0.7))
+            let scanY = y + bodyHeight - 4 - scanOffset
+            if scanY >= fillY, scanY < y + bodyHeight - 3 {
+                rect(x + 3, scanY, bodyWidth - 6, 1, shine.withAlphaComponent(0.72))
             }
         }
 
-        for tick in stride(from: y + 6, through: y + bodyHeight - 6, by: 5) {
-            rect(x + 2, tick, bodyWidth - 4, 1, outline.withAlphaComponent(0.38))
+        for tick in stride(from: y + 7, through: y + bodyHeight - 6, by: 5) {
+            rect(x + 2, tick, bodyWidth - 4, 1, outline.withAlphaComponent(0.22))
         }
+    }
+
+    private func capsule(_ x: Int, _ yFromTop: Int, _ w: Int, _ h: Int, _ color: NSColor) {
+        color.setFill()
+        NSBezierPath(roundedRect: rectFromTop(x, yFromTop, w, h), xRadius: CGFloat(max(1, min(w, h) / 2)), yRadius: CGFloat(max(1, min(w, h) / 2))).fill()
     }
 
     private func rect(_ x: Int, _ yFromTop: Int, _ w: Int, _ h: Int, _ color: NSColor) {
         color.setFill()
-        NSRect(
-            x: CGFloat(x),
-            y: CGFloat(height - yFromTop - h),
-            width: CGFloat(w),
-            height: CGFloat(h)
-        ).fill()
+        rectFromTop(x, yFromTop, w, h).fill()
+    }
+
+    private func rectFromTop(_ x: Int, _ yFromTop: Int, _ w: Int, _ h: Int) -> NSRect {
+        NSRect(x: CGFloat(x), y: CGFloat(height - yFromTop - h), width: CGFloat(w), height: CGFloat(h))
     }
 }
 
@@ -1009,6 +1023,7 @@ final class TokenDetailsPanel: NSView {
 
         let token = snapshot.tokenUsage
         drawText("Codex Cat", x: contentInset, y: 24, size: 17, weight: .semibold, color: palette.primaryText)
+        drawPanelCatMark(x: contentInset + 92, y: 25, state: snapshot.state)
         drawStatusPill(snapshot.state.rawValue.uppercased(), x: Int(bounds.width) - contentInset - 76, y: 22, width: 76, state: snapshot.state)
 
         drawText(
@@ -1071,12 +1086,16 @@ final class TokenDetailsPanel: NSView {
         palette.cardFill.setFill()
         cardPath.fill()
         palette.cardStroke.setStroke()
-        cardPath.lineWidth = 1
+        cardPath.lineWidth = 1.2
         cardPath.stroke()
 
         let highlight = rectFromTop(x: contentInset, y: 16, width: Int(bounds.width) - contentInset * 2, height: 1)
         palette.cardHighlight.setFill()
         NSBezierPath(roundedRect: highlight, xRadius: 0.5, yRadius: 0.5).fill()
+
+        let warmBand = rectFromTop(x: contentInset, y: 201, width: Int(bounds.width) - contentInset * 2, height: 3)
+        NSColor(calibratedRed: 1.0, green: 0.78, blue: 0.34, alpha: palette.isDark ? 0.18 : 0.34).setFill()
+        NSBezierPath(roundedRect: warmBand, xRadius: 1.5, yRadius: 1.5).fill()
     }
 
     private func drawQuotaRow(title: String, percent: Double?, detail: String, y: Int) {
@@ -1084,7 +1103,7 @@ final class TokenDetailsPanel: NSView {
         let width = Int(bounds.width) - contentInset * 2
         drawText(title, x: x, y: y, size: 12, weight: .medium, color: palette.primaryText)
         drawRightText(formatPercent(percent ?? 0), right: contentInset, y: y - 1, size: 16, weight: .semibold, color: palette.primaryText)
-        drawBar(percent: percent, x: x, y: y + 25, width: width, height: 8, color: color(for: percent))
+        drawBar(percent: percent, x: x, y: y + 25, width: width, height: 9, color: color(for: percent))
         drawText(detail, x: x, y: y + 40, size: 9.5, color: palette.secondaryText)
     }
 
@@ -1103,6 +1122,13 @@ final class TokenDetailsPanel: NSView {
             let fillRect = NSRect(x: trackRect.minX, y: trackRect.minY, width: CGFloat(fillWidth), height: trackRect.height)
             color.setFill()
             NSBezierPath(roundedRect: fillRect, xRadius: CGFloat(height) / 2, yRadius: CGFloat(height) / 2).fill()
+
+            let shineWidth = max(0, fillWidth - 8)
+            if shineWidth > 0 {
+                let shine = NSRect(x: fillRect.minX + 4, y: fillRect.midY + 1, width: CGFloat(shineWidth), height: 1)
+                palette.cardHighlight.withAlphaComponent(0.55).setFill()
+                NSBezierPath(roundedRect: shine, xRadius: 0.5, yRadius: 0.5).fill()
+            }
         }
 
         palette.trackStroke.setStroke()
@@ -1125,6 +1151,43 @@ final class TokenDetailsPanel: NSView {
         color.setFill()
         NSBezierPath(ovalIn: dot).fill()
         drawText(text, x: x + 23, y: y + 6, size: 9.5, weight: .semibold, color: palette.primaryText)
+    }
+
+    private func drawPanelCatMark(x: Int, y: Int, state: CatState) {
+        let accent = stateColor(state)
+        let earLeft = [
+            NSPoint(x: CGFloat(x + 2), y: bounds.height - CGFloat(y + 9)),
+            NSPoint(x: CGFloat(x + 5), y: bounds.height - CGFloat(y + 3)),
+            NSPoint(x: CGFloat(x + 8), y: bounds.height - CGFloat(y + 9))
+        ]
+        let earRight = [
+            NSPoint(x: CGFloat(x + 12), y: bounds.height - CGFloat(y + 9)),
+            NSPoint(x: CGFloat(x + 15), y: bounds.height - CGFloat(y + 3)),
+            NSPoint(x: CGFloat(x + 18), y: bounds.height - CGFloat(y + 9))
+        ]
+        drawTriangle(earLeft, color: palette.primaryText)
+        drawTriangle(earRight, color: palette.primaryText)
+        let face = rectFromTop(x: x + 1, y: y + 8, width: 18, height: 13)
+        palette.catFill.setFill()
+        NSBezierPath(ovalIn: face).fill()
+        palette.primaryText.setStroke()
+        let outline = NSBezierPath(ovalIn: face)
+        outline.lineWidth = 1.2
+        outline.stroke()
+        accent.withAlphaComponent(0.75).setFill()
+        NSBezierPath(ovalIn: rectFromTop(x: x + 7, y: y + 14, width: 4, height: 3)).fill()
+    }
+
+    private func drawTriangle(_ points: [NSPoint], color: NSColor) {
+        guard let first = points.first else { return }
+        let path = NSBezierPath()
+        path.move(to: first)
+        for point in points.dropFirst() {
+            path.line(to: point)
+        }
+        path.close()
+        color.setFill()
+        path.fill()
     }
 
     private func drawQuitButton() {
@@ -1155,23 +1218,23 @@ final class TokenDetailsPanel: NSView {
     private func stateColor(_ state: CatState) -> NSColor {
         switch state {
         case .idle:
-            return .systemBlue
+            return NSColor(calibratedRed: 0.54, green: 0.63, blue: 0.86, alpha: 1)
         case .running:
-            return .systemGreen
+            return NSColor(calibratedRed: 0.42, green: 0.72, blue: 0.45, alpha: 1)
         case .review:
-            return .systemRed
+            return NSColor(calibratedRed: 1.0, green: 0.42, blue: 0.48, alpha: 1)
         }
     }
 
     private func color(for percent: Double?) -> NSColor {
         let value = percent ?? 0
         if value < 20 {
-            return .systemRed
+            return NSColor(calibratedRed: 1.0, green: 0.38, blue: 0.44, alpha: 1)
         }
         if value < 45 {
-            return .systemOrange
+            return NSColor(calibratedRed: 1.0, green: 0.58, blue: 0.29, alpha: 1)
         }
-        return .systemGreen
+        return NSColor(calibratedRed: 1.0, green: 0.80, blue: 0.27, alpha: 1)
     }
 
     private func drawText(
@@ -1231,29 +1294,31 @@ final class TokenDetailsPanel: NSView {
         if dark {
             return PanelPalette(
                 isDark: true,
-                cardFill: NSColor(calibratedWhite: 0.12, alpha: 0.78),
-                cardStroke: NSColor.white.withAlphaComponent(0.18),
-                cardHighlight: NSColor.white.withAlphaComponent(0.24),
-                primaryText: NSColor.white.withAlphaComponent(0.94),
-                secondaryText: NSColor.white.withAlphaComponent(0.62),
-                tertiaryText: NSColor.white.withAlphaComponent(0.42),
-                trackFill: NSColor.white.withAlphaComponent(0.12),
-                trackStroke: NSColor.white.withAlphaComponent(0.14),
-                buttonFill: NSColor.white.withAlphaComponent(0.08)
+                cardFill: NSColor(calibratedRed: 0.17, green: 0.13, blue: 0.10, alpha: 0.86),
+                cardStroke: NSColor(calibratedRed: 1.0, green: 0.78, blue: 0.48, alpha: 0.22),
+                cardHighlight: NSColor(calibratedRed: 1.0, green: 0.96, blue: 0.82, alpha: 0.26),
+                primaryText: NSColor(calibratedRed: 1.0, green: 0.95, blue: 0.86, alpha: 0.94),
+                secondaryText: NSColor(calibratedRed: 1.0, green: 0.88, blue: 0.72, alpha: 0.68),
+                tertiaryText: NSColor(calibratedRed: 1.0, green: 0.82, blue: 0.58, alpha: 0.48),
+                trackFill: NSColor(calibratedRed: 0.06, green: 0.04, blue: 0.03, alpha: 0.34),
+                trackStroke: NSColor(calibratedRed: 1.0, green: 0.75, blue: 0.42, alpha: 0.18),
+                buttonFill: NSColor(calibratedRed: 1.0, green: 0.88, blue: 0.68, alpha: 0.10),
+                catFill: NSColor(calibratedRed: 0.98, green: 0.94, blue: 0.84, alpha: 1)
             )
         }
 
         return PanelPalette(
             isDark: false,
-            cardFill: NSColor.white.withAlphaComponent(0.82),
-            cardStroke: NSColor.white.withAlphaComponent(0.72),
-            cardHighlight: NSColor.white.withAlphaComponent(0.92),
-            primaryText: NSColor.black.withAlphaComponent(0.86),
-            secondaryText: NSColor.black.withAlphaComponent(0.52),
-            tertiaryText: NSColor.black.withAlphaComponent(0.42),
-            trackFill: NSColor.black.withAlphaComponent(0.08),
-            trackStroke: NSColor.black.withAlphaComponent(0.08),
-            buttonFill: NSColor.black.withAlphaComponent(0.045)
+            cardFill: NSColor(calibratedRed: 1.0, green: 0.96, blue: 0.87, alpha: 0.90),
+            cardStroke: NSColor(calibratedRed: 0.98, green: 0.72, blue: 0.39, alpha: 0.45),
+            cardHighlight: NSColor.white.withAlphaComponent(0.94),
+            primaryText: NSColor(calibratedRed: 0.15, green: 0.12, blue: 0.10, alpha: 0.90),
+            secondaryText: NSColor(calibratedRed: 0.42, green: 0.33, blue: 0.25, alpha: 0.68),
+            tertiaryText: NSColor(calibratedRed: 0.54, green: 0.41, blue: 0.28, alpha: 0.58),
+            trackFill: NSColor(calibratedRed: 0.74, green: 0.60, blue: 0.42, alpha: 0.20),
+            trackStroke: NSColor(calibratedRed: 0.52, green: 0.40, blue: 0.28, alpha: 0.16),
+            buttonFill: NSColor(calibratedRed: 0.98, green: 0.74, blue: 0.47, alpha: 0.14),
+            catFill: NSColor(calibratedRed: 0.99, green: 0.96, blue: 0.88, alpha: 1)
         )
     }
 }
@@ -1269,6 +1334,7 @@ private struct PanelPalette {
     let trackFill: NSColor
     let trackStroke: NSColor
     let buttonFill: NSColor
+    let catFill: NSColor
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {

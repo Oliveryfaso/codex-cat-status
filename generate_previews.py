@@ -3,18 +3,19 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-WIDTH = 44
+WIDTH = 52
 HEIGHT = 28
 SCALE = 8
-
-OUTLINE = (10, 10, 10, 255)
-FUR = (230, 230, 230, 255)
-FUR_LIGHT = (255, 255, 255, 255)
-FUR_DARK = (92, 92, 92, 255)
-MID = (174, 174, 174, 255)
-EYE = (8, 8, 8, 255)
-SIGNAL = (242, 242, 242, 255)
 TRANSPARENT = (0, 0, 0, 0)
+
+OUTLINE = (33, 31, 28, 255)
+FUR = (250, 245, 232, 255)
+CREAM = (255, 220, 154, 255)
+SHADE = (168, 145, 120, 255)
+PINK = (255, 160, 188, 255)
+SHADOW = (0, 0, 0, 55)
+SIGNAL = (255, 220, 66, 255)
+SLEEP = (188, 188, 188, 210)
 
 
 class Sprite:
@@ -22,211 +23,152 @@ class Sprite:
         self.img = Image.new("RGBA", (WIDTH, HEIGHT), TRANSPARENT)
         self.draw = ImageDraw.Draw(self.img)
 
-    def rect(self, x, y_from_top, w, h, color):
-        if w <= 0 or h <= 0:
-            return
-        self.draw.rectangle(
-            [x, y_from_top, x + w - 1, y_from_top + h - 1],
-            fill=color,
-        )
+    def rect(self, x, y, w, h, color):
+        if w > 0 and h > 0:
+            self.draw.rectangle((x, y, x + w - 1, y + h - 1), fill=color)
 
-    def draw_head(self, x, y, blink=False, surprised=False):
-        self.rect(x + 1, y + 2, 9, 8, OUTLINE)
-        self.rect(x + 2, y + 3, 7, 6, FUR)
-        self.rect(x + 2, y + 1, 2, 3, OUTLINE)
-        self.rect(x + 7, y + 1, 2, 3, OUTLINE)
-        self.rect(x + 3, y + 4, 5, 2, FUR_LIGHT)
-        self.rect(x + 5, y + 6, 1, 1, MID)
+    def oval(self, x, y, w, h, color):
+        if w > 0 and h > 0:
+            self.draw.ellipse((x, y, x + w - 1, y + h - 1), fill=color)
 
-        if blink:
-            self.rect(x + 3, y + 5, 2, 1, OUTLINE)
-            self.rect(x + 7, y + 5, 2, 1, OUTLINE)
-        elif surprised:
-            self.rect(x + 3, y + 5, 2, 2, EYE)
-            self.rect(x + 7, y + 5, 2, 2, EYE)
-            self.rect(x + 5, y + 8, 2, 2, SIGNAL)
-        else:
-            self.rect(x + 3, y + 5, 1, 2, EYE)
-            self.rect(x + 7, y + 5, 1, 2, EYE)
-            self.rect(x + 5, y + 8, 2, 1, OUTLINE)
+    def tri(self, points, color):
+        self.draw.polygon(points, fill=color)
 
-    def draw_body(self, x, y, stretch=0):
-        self.rect(x + 1, y + 1, 15 + stretch, 7, OUTLINE)
-        self.rect(x, y + 3, 17 + stretch, 4, OUTLINE)
-        self.rect(x + 2, y + 2, 13 + stretch, 5, FUR)
-        self.rect(x + 5, y + 3, 7 + stretch, 3, FUR_LIGHT)
-        self.rect(x + 4, y + 2, 2, 1, MID)
-        self.rect(x + 13 + stretch, y + 2, 2, 1, FUR_DARK)
-
-    def draw_tail(self, base_x, base_y, phase, wild=False):
-        lift = ([3, 1, -2, -4, -2, 1, 3, 2] if wild else [1, 0, -1, -2, -1, 0, 1, 0])[phase % 8]
-        self.rect(base_x, base_y + 2 + lift, 6, 2, OUTLINE)
-        self.rect(base_x + 4, base_y - 1 + lift, 2, 5, OUTLINE)
-        self.rect(base_x + 1, base_y + 3 + lift, 5, 1, FUR_DARK)
-        self.rect(base_x + 5, base_y + lift, 1, 4, FUR)
+    def line(self, points, color, width=1):
+        self.draw.line(points, fill=color, width=width, joint="curve")
 
     def running(self, frame):
-        phase = frame % 8
-        bob = [0, -1, -1, 0, 0, 1, 0, -1][phase]
-        lean = [0, 0, 1, 1, 0, -1, -1, 0][phase]
-        self.speed_lines(phase)
-        self.run_tail(32 + lean, 12 + bob, phase)
-        self.run_body(12 + lean, 11 + bob, phase)
-        self.run_head(5 + lean, 8 + bob - (1 if phase == 2 else 0), phase)
-        self.run_legs(12 + lean, 18 + bob, phase)
+        p = frame % 8
+        bob = [0, -1, -2, -1, 0, 1, 0, -1][p]
+        lean = [0, 1, 1, 0, -1, -1, 0, 0][p]
+        stretch = [0, 1, 2, 1, 0, -1, 0, 1][p]
+        arch = [0, -1, -2, -1, 0, 1, 0, -1][p]
+
+        self.oval(14, 24, 30, 3, SHADOW)
+        self.speed(p)
+        self.run_tail(34 + lean + stretch, 9 + bob + arch, p)
+        self.run_body(15 + lean, 10 + bob + arch, stretch)
+        self.head(3 + lean, 6 + bob + arch, p, "run")
+        self.run_legs(20 + lean, 19 + bob, stretch, p)
 
     def idle(self, frame):
-        phase = frame % 12
-        breathe = 0 if phase < 6 else 1
-        sleep_shift = 0 if phase < 6 else 2
-        self.curled_body(9, 10, breathe)
-        self.curled_head(8, 9 + breathe)
-        self.curled_tail(23, 13 + breathe)
-        if phase < 6:
-            self.rect(30 + sleep_shift, 4, 2, 1, SIGNAL)
-            self.rect(31 + sleep_shift, 3, 2, 1, SIGNAL)
-            self.rect(30 + sleep_shift, 2, 4, 1, SIGNAL)
+        p = frame % 12
+        breathe = 0 if p < 6 else 1
+        shift = 0 if p < 6 else 2
+        self.oval(11, 24, 31, 3, SHADOW)
+        self.curled_body(10, 11 + breathe, breathe)
+        self.head(7, 6 + breathe, p, "sleep")
+        self.curled_tail(34, 12 + breathe)
+        if p < 6:
+            self.rect(43 + shift, 6, 3, 1, SLEEP)
+            self.rect(45 + shift, 4, 3, 1, SLEEP)
+            self.rect(43 + shift, 2, 5, 1, SLEEP)
         else:
-            self.rect(31 + sleep_shift, 3, 2, 1, SIGNAL)
-            self.rect(33 + sleep_shift, 2, 2, 1, SIGNAL)
-            self.rect(31 + sleep_shift, 1, 4, 1, SIGNAL)
+            self.rect(44 + shift, 5, 3, 1, SLEEP)
+            self.rect(46 + shift, 3, 3, 1, SLEEP)
+            self.rect(44 + shift, 1, 5, 1, SLEEP)
 
     def review(self, frame):
-        phase = frame % 4
-        wobble = [-1, 1, 2, -2][phase]
-        pop = [0, -1, 0, 1][phase]
-        self.sitting_body(16 + wobble, 13 + pop)
-        self.review_head(11 + wobble, 6 + pop, phase)
-        self.sitting_tail(29 + wobble, 18 + pop, phase)
-        self.review_mark(35 - wobble, 2 + pop, phase)
+        p = frame % 4
+        wobble = [-1, 1, 0, -1][p]
+        pop = [0, -1, 0, 1][p]
+        self.oval(17, 24, 24, 3, SHADOW)
+        self.sitting_body(21 + wobble, 11 + pop)
+        self.head(14 + wobble, 4 + pop, p, "alert")
+        self.sitting_tail(35 + wobble, 15 + pop, p)
+        self.review_mark(45 - wobble, 3 + pop, p)
 
-    def run_head(self, x, y, phase):
-        self.rect(x + 1, y + 2, 8, 7, OUTLINE)
-        self.rect(x + 2, y + 3, 6, 5, FUR)
-        self.rect(x + 2, y + 1, 2, 3, OUTLINE)
-        self.rect(x + 7, y + 1, 2, 3, OUTLINE)
-        self.rect(x + 3, y + 4, 4, 2, FUR_LIGHT)
-        self.rect(x + 4, y + 6, 1, 1, MID)
-        self.rect(x + 3, y + 5, 1, 1, EYE)
-        self.rect(x + 7, y + 5, 1, 1, EYE)
-        self.rect(x + 5, y + 8, 2, 1, OUTLINE)
+    def head(self, x, y, p, mood):
+        self.tri([(x + 5, y + 1), (x + 9, y + 8), (x + 2, y + 8)], OUTLINE)
+        self.tri([(x + 15, y + 1), (x + 18, y + 8), (x + 11, y + 8)], OUTLINE)
+        self.oval(x + 2, y + 5, 17, 16, OUTLINE)
+        self.oval(x + 4, y + 7, 13, 12, FUR)
+        self.tri([(x + 6, y + 5), (x + 8, y + 8), (x + 5, y + 8)], PINK)
+        self.tri([(x + 14, y + 5), (x + 16, y + 8), (x + 12, y + 8)], PINK)
+        self.oval(x + 8, y + 12, 6, 5, CREAM)
+        self.rect(x + 10, y + 16, 1, 1, PINK)
+        if mood == "sleep":
+            self.rect(x + 7, y + 15, 3, 1, OUTLINE)
+            self.rect(x + 13, y + 15, 3, 1, OUTLINE)
+            self.rect(x + 10, y + 18, 3, 1, (70, 62, 55, 185))
+        elif mood == "alert":
+            self.rect(x + 7, y + 13, 3, 3, OUTLINE)
+            self.rect(x + 13, y + 13, 3, 3, OUTLINE)
+            self.rect(x + 10, y + 18, 4, 2, OUTLINE)
+        else:
+            blink = p == 5
+            self.rect(x + 7, y + 13, 3, 1 if blink else 3, OUTLINE)
+            self.rect(x + 13, y + 13, 3, 1 if blink else 3, OUTLINE)
 
-    def run_body(self, x, y, phase):
-        shoulder = [0, -1, -1, 0, 1, 0, -1, -1][phase]
-        waist = [1, 0, -1, -1, 0, 1, 0, -1][phase]
-        hip = [0, 1, 0, -1, -1, 0, 1, 0][phase]
-        self.rect(x + 1, y + 4 + shoulder, 6, 2, OUTLINE)
-        self.rect(x + 7, y + 3 + waist, 9, 2, OUTLINE)
-        self.rect(x + 16, y + 4 + hip, 6, 2, OUTLINE)
-        self.rect(x + 1, y + 6 + shoulder, 21, 5, OUTLINE)
-        self.rect(x + 3, y + 6 + shoulder, 17, 4, FUR)
-        self.rect(x + 6, y + 6 + waist, 8, 2, FUR_LIGHT)
-        self.rect(x + 18, y + 7 + hip, 3, 3, FUR_DARK)
-        self.rect(x + 3, y + 10 + waist, 15, 1, OUTLINE)
-        self.rect(x + 1, y + 8 + shoulder, 2, 2, FUR)
-        self.rect(x + 6, y + 5 + waist, 3, 1, MID)
+    def run_body(self, x, y, stretch):
+        self.oval(x, y, 24 + stretch, 13, OUTLINE)
+        self.oval(x + 2, y + 2, 20 + stretch, 9, FUR)
+        self.oval(x + 7, y + 4, 11 + stretch, 5, CREAM)
+        self.oval(x + 18 + stretch, y + 4, 7, 7, SHADE)
+        self.rect(x + 5, y + 12, 14 + stretch, 1, OUTLINE)
 
-    def run_legs(self, x, y, phase):
-        front_stride = [4, 3, 1, -2, -4, -2, 1, 3][phase]
-        rear_stride = [-4, -2, 1, 4, 3, 0, -2, -4][phase]
-        shadow_front = [-2, -1, 1, 3, 2, 0, -1, -2][phase]
-        shadow_rear = [2, 1, -1, -3, -2, 0, 1, 2][phase]
-        self.stride_leg(x + 7, y, x + 7 + shadow_front, y + 5, False, False)
-        self.stride_leg(x + 19, y, x + 19 + shadow_rear, y + 5, False, False)
-        self.stride_leg(x + 5, y, x + 5 + front_stride, y + 6 + (phase % 2), True, True)
-        self.stride_leg(x + 18, y, x + 18 + rear_stride, y + 6 + ((phase + 1) % 2), False, True)
+    def run_legs(self, x, y, stretch, p):
+        front = [5, 3, 1, -3, -5, -2, 2, 4][p]
+        rear = [-5, -3, 2, 5, 3, 0, -3, -5][p]
+        ghost_front = [-2, 0, 3, 4, 2, 0, -1, -2][p]
+        ghost_rear = [3, 1, -3, -4, -2, 0, 2, 3][p]
+        self.leg(x + 5, y, x + 5 + ghost_front, y + 5, SHADE, False)
+        self.leg(x + 19 + stretch, y, x + 19 + stretch + ghost_rear, y + 5, SHADE, False)
+        self.leg(x + 2, y, x + 2 + front, y + 7 + (p % 2), FUR, True)
+        self.leg(x + 16 + stretch, y, x + 16 + stretch + rear, y + 7 + ((p + 1) % 2), SHADE, True)
 
-    def stride_leg(self, hip_x, hip_y, foot_x, foot_y, front, primary):
-        knee_x = (hip_x + foot_x) // 2
-        knee_y = hip_y + 3
-        leg_outline = OUTLINE if primary else (10, 10, 10, 210)
-        leg_fill = FUR if front else (FUR_DARK if primary else MID)
-        self.rect(min(hip_x, knee_x), hip_y, abs(knee_x - hip_x) + 1, 2 if primary else 1, leg_outline)
-        self.rect(min(knee_x, foot_x), knee_y, abs(foot_x - knee_x) + 1, 2 if primary else 1, leg_outline)
-        self.rect(min(hip_x, knee_x), hip_y + 1, max(1, abs(knee_x - hip_x) + 1), 1, leg_fill)
-        self.rect(min(knee_x, foot_x), knee_y + 1, max(1, abs(foot_x - knee_x) + 1), 1, leg_fill)
-        self.rect(foot_x - 1, foot_y, 4 if primary else 3, 1, leg_outline)
-        self.rect(foot_x, foot_y - 1, 2 if primary else 1, 1, leg_fill)
+    def leg(self, hx, hy, fx, fy, fill, primary):
+        kx = (hx + fx) // 2
+        ky = hy + 3
+        w = 3 if primary else 2
+        self.line([(hx, hy), (kx, ky), (fx, fy)], OUTLINE, w)
+        self.line([(hx, hy + 1), (kx, ky + 1), (fx, fy)], fill, max(1, w - 2))
+        self.oval(fx - 2, fy - 1, 6 if primary else 4, 3, OUTLINE)
+        self.oval(fx - 1, fy - 1, 4 if primary else 3, 2, fill)
 
-    def run_tail(self, base_x, base_y, phase):
-        lift = [2, 1, -1, -3, -2, 0, 2, 3][phase % 8]
-        self.rect(base_x, base_y + 4 + lift, 5, 1, OUTLINE)
-        self.rect(base_x + 4, base_y + 2 + lift, 4, 1, OUTLINE)
-        self.rect(base_x + 7, base_y + lift, 2, 4, OUTLINE)
-        self.rect(base_x + 1, base_y + 5 + lift, 3, 1, FUR_DARK)
-        self.rect(base_x + 5, base_y + 3 + lift, 3, 1, FUR)
-        self.rect(base_x + 8, base_y + 1 + lift, 1, 2, FUR_LIGHT)
-
-    def speed_lines(self, phase):
-        alpha = 86 if phase % 2 == 0 else 46
-        self.rect(0, 24, 5, 1, (174, 174, 174, alpha))
-        self.rect(3, 22, 4, 1, (174, 174, 174, int(alpha * 0.7)))
+    def run_tail(self, x, y, p):
+        lift = [3, 2, -1, -3, -2, 0, 2, 3][p]
+        pts = [(x, y + 8 + lift), (x + 4, y + 5 + lift), (x + 8, y + lift), (x + 8, y - 3 + lift)]
+        self.line(pts, OUTLINE, 4)
+        self.line(pts, FUR, 1)
 
     def curled_body(self, x, y, breathe):
-        self.rect(x + 9, y + 2, 12, 2, OUTLINE)
-        self.rect(x + 5, y + 4, 20, 4, OUTLINE)
-        self.rect(x + 3, y + 8, 24, 7 + breathe, OUTLINE)
-        self.rect(x + 5, y + 15 + breathe, 19, 4, OUTLINE)
-        self.rect(x + 10, y + 19 + breathe, 10, 2, OUTLINE)
-        self.rect(x + 6, y + 6, 18, 10 + breathe, FUR)
-        self.rect(x + 10, y + 7, 10, 6 + breathe, FUR_LIGHT)
-        self.rect(x + 18, y + 11, 4, 2, MID)
-        self.rect(x + 10, y + 17 + breathe, 10, 1, FUR_DARK)
-
-    def curled_head(self, x, y):
-        self.rect(x + 1, y + 2, 9, 8, OUTLINE)
-        self.rect(x + 2, y + 3, 7, 6, FUR)
-        self.rect(x + 2, y, 2, 4, OUTLINE)
-        self.rect(x + 8, y, 2, 4, OUTLINE)
-        self.rect(x + 4, y + 5, 4, 2, FUR_LIGHT)
-        self.rect(x + 4, y + 7, 1, 1, OUTLINE)
-        self.rect(x + 7, y + 7, 1, 1, OUTLINE)
+        self.oval(x, y, 31, 16 + breathe, OUTLINE)
+        self.oval(x + 3, y + 2, 26, 12 + breathe, FUR)
+        self.oval(x + 10, y + 4, 14, 7 + breathe, CREAM)
+        self.oval(x + 23, y + 5, 7, 7, SHADE)
+        self.rect(x + 6, y + 15 + breathe, 19, 2, OUTLINE)
 
     def curled_tail(self, x, y):
-        self.rect(x, y, 8, 2, OUTLINE)
-        self.rect(x + 6, y - 4, 2, 6, OUTLINE)
-        self.rect(x + 2, y + 2, 7, 2, OUTLINE)
-        self.rect(x + 1, y + 1, 6, 1, FUR_DARK)
-        self.rect(x + 7, y - 3, 1, 4, FUR)
-        self.rect(x + 3, y + 3, 5, 1, FUR_DARK)
+        self.line([(x, y + 11), (x + 7, y + 8), (x + 7, y + 2)], OUTLINE, 4)
+        self.line([(x, y + 11), (x + 6, y + 8), (x + 6, y + 3)], FUR, 1)
 
     def sitting_body(self, x, y):
-        self.rect(x + 3, y, 10, 12, OUTLINE)
-        self.rect(x + 1, y + 6, 14, 7, OUTLINE)
-        self.rect(x + 4, y + 1, 8, 11, FUR)
-        self.rect(x + 6, y + 3, 5, 7, FUR_LIGHT)
-        self.rect(x + 1, y + 13, 5, 2, OUTLINE)
-        self.rect(x + 10, y + 13, 5, 2, OUTLINE)
-        self.rect(x + 2, y + 12, 3, 1, FUR_DARK)
-        self.rect(x + 11, y + 12, 3, 1, FUR_DARK)
-        self.rect(x - 1, y + 7, 3, 1, OUTLINE)
-        self.rect(x + 14, y + 7, 3, 1, OUTLINE)
+        self.oval(x, y, 16, 20, OUTLINE)
+        self.oval(x + 3, y + 2, 11, 16, FUR)
+        self.oval(x + 6, y + 6, 7, 10, CREAM)
+        self.oval(x - 2, y + 16, 8, 5, OUTLINE)
+        self.oval(x + 12, y + 16, 9, 5, OUTLINE)
+        self.rect(x + 1, y + 19, 5, 1, SHADE)
+        self.rect(x + 15, y + 19, 5, 1, SHADE)
 
-    def review_head(self, x, y, phase):
-        self.rect(x + 1, y + 2, 10, 9, OUTLINE)
-        self.rect(x + 2, y + 3, 8, 7, FUR)
-        self.rect(x + 2, y, 2, 4, OUTLINE)
-        self.rect(x + 8, y, 2, 4, OUTLINE)
-        self.rect(x + 4, y + 5, 5, 2, FUR_LIGHT)
-        self.rect(x + 4, y + 6, 2, 2, EYE)
-        self.rect(x + 8, y + 6, 2, 2, EYE)
-        self.rect(x + 5, y + 9, 3, 1, SIGNAL)
-        self.rect(x + 3, y + 11, 2, 2, OUTLINE)
-        self.rect(x + 9, y + 11, 2, 2, OUTLINE)
+    def sitting_tail(self, x, y, p):
+        curl = [0, 1, 0, -1][p]
+        pts = [(x, y + 8 + curl), (x + 7, y + 5 + curl), (x + 10, y + curl)]
+        self.line(pts, OUTLINE, 4)
+        self.line(pts, FUR, 1)
 
-    def sitting_tail(self, x, y, phase):
-        curl = [0, 1, 0, -1][phase]
-        self.rect(x, y + curl, 7, 2, OUTLINE)
-        self.rect(x + 5, y - 4 + curl, 2, 6, OUTLINE)
-        self.rect(x + 1, y + 1 + curl, 5, 1, FUR_DARK)
-        self.rect(x + 6, y - 3 + curl, 1, 4, FUR)
+    def review_mark(self, x, y, p):
+        hop = [0, -1, 0, 1][p]
+        self.rect(x, y + hop, 5, 16, OUTLINE)
+        self.rect(x + 1, y + 1 + hop, 3, 13, SIGNAL)
+        self.rect(x, y + 20 + hop, 5, 5, OUTLINE)
+        self.rect(x + 1, y + 21 + hop, 3, 3, SIGNAL)
 
-    def review_mark(self, x, y, phase):
-        hop = [0, -1, 0, 1][phase]
-        self.rect(x, y + hop, 3, 13, SIGNAL)
-        self.rect(x, y + 16 + hop, 3, 3, SIGNAL)
-        self.rect(x - 1, y + hop, 1, 13, (10, 10, 10, 140))
-        self.rect(x + 3, y + hop, 1, 13, (10, 10, 10, 140))
+    def speed(self, p):
+        alpha = 86 if p % 2 == 0 else 46
+        self.rect(2, 25, 7, 1, (168, 145, 120, alpha))
+        self.rect(6, 22, 5, 1, (168, 145, 120, int(alpha * 0.7)))
 
 
 def frame(state, n):
@@ -237,25 +179,18 @@ def frame(state, n):
 
 def gif(path, state, frames, duration):
     images = [frame(state, n) for n in frames]
-    images[0].save(
-        path,
-        save_all=True,
-        append_images=images[1:],
-        duration=duration,
-        loop=0,
-        disposal=2,
-    )
+    images[0].save(path, save_all=True, append_images=images[1:], duration=duration, loop=0, disposal=2)
 
 
 def contact_sheet(path):
     rows = [
         ("idle / resting", "idle", [0, 3, 6, 9]),
-        ("running", "running", [0, 1, 2, 3, 4, 5, 6, 7]),
+        ("running", "running", list(range(8))),
         ("review / alert", "review", [0, 1, 2, 3]),
     ]
     cell_w = WIDTH * SCALE
     cell_h = HEIGHT * SCALE
-    gap = 22
+    gap = 18
     margin = 28
     label_h = 28
     row_h = label_h + cell_h + 20
@@ -265,7 +200,6 @@ def contact_sheet(path):
     sheet = Image.new("RGBA", (sheet_w, sheet_h), (248, 248, 248, 255))
     draw = ImageDraw.Draw(sheet)
     font = ImageFont.load_default()
-
     for row_i, (label, state, frames) in enumerate(rows):
         top = margin + row_i * row_h
         draw.text((margin, top), label, fill=(25, 25, 25, 255), font=font)
@@ -274,7 +208,6 @@ def contact_sheet(path):
             y = top + label_h
             sheet.alpha_composite(frame(state, n), (x, y))
             draw.text((x, y + cell_h + 4), f"frame {n}", fill=(80, 80, 80, 255), font=font)
-
     sheet.save(path)
 
 
