@@ -183,10 +183,10 @@ final class AnimatedCatSprite {
         let lean = [0, 0, 1, 1, 0, -1, -1, 0][phase]
 
         drawSpeedLines(phase: phase)
-        drawRunTail(baseX: 34 + lean, baseY: 12 + bob, phase: phase)
-        drawRunBody(x: 12 + lean, y: 10 + bob, phase: phase)
-        drawRunHead(x: 4 + lean, y: 7 + bob - (phase == 2 ? 1 : 0), phase: phase)
-        drawRunLegs(x: 12 + lean, y: 19 + bob, phase: phase)
+        drawRunTail(baseX: 32 + lean, baseY: 12 + bob, phase: phase)
+        drawRunBody(x: 12 + lean, y: 11 + bob, phase: phase)
+        drawRunHead(x: 5 + lean, y: 8 + bob - (phase == 2 ? 1 : 0), phase: phase)
+        drawRunLegs(x: 12 + lean, y: 18 + bob, phase: phase)
     }
 
     private func drawIdle(frame: Int) {
@@ -214,62 +214,64 @@ final class AnimatedCatSprite {
         let wobble = [-1, 1, 2, -2][phase]
         let pop = [0, -1, 0, 1][phase]
 
-        drawSittingBody(x: 15 + wobble, y: 12 + pop)
-        drawReviewHead(x: 10 + wobble, y: 5 + pop, phase: phase)
-        drawSittingTail(x: 29 + wobble, y: 17 + pop, phase: phase)
+        drawSittingBody(x: 16 + wobble, y: 13 + pop)
+        drawReviewHead(x: 11 + wobble, y: 6 + pop, phase: phase)
+        drawSittingTail(x: 29 + wobble, y: 18 + pop, phase: phase)
         drawReviewMark(x: 35 - wobble, y: 2 + pop, phase: phase)
     }
 
     private func drawRunHead(x: Int, y: Int, phase: Int) {
-        rect(x + 1, y + 2, 10, 8, outline)
-        rect(x + 2, y + 3, 8, 6, fur)
+        rect(x + 1, y + 2, 8, 7, outline)
+        rect(x + 2, y + 3, 6, 5, fur)
         rect(x + 2, y + 1, 2, 3, outline)
-        rect(x + 8, y + 1, 2, 3, outline)
-        rect(x + 3, y + 4, 6, 2, furLight)
-        rect(x + 5, y + 6, 1, 1, mid)
-        rect(x + 4, y + 5, 1, 2, eye)
-        rect(x + 8, y + 5, 1, 2, eye)
-        rect(x + 6, y + 8, 2, 1, outline)
+        rect(x + 7, y + 1, 2, 3, outline)
+        rect(x + 3, y + 4, 4, 2, furLight)
+        rect(x + 4, y + 6, 1, 1, mid)
+        rect(x + 3, y + 5, 1, 1, eye)
+        rect(x + 7, y + 5, 1, 1, eye)
+        rect(x + 5, y + 8, 2, 1, outline)
     }
 
     private func drawReviewHead(x: Int, y: Int, phase: Int) {
-        rect(x + 1, y + 2, 12, 10, outline)
-        rect(x + 2, y + 3, 10, 8, fur)
-        rect(x + 2, y, 3, 4, outline)
-        rect(x + 9, y, 3, 4, outline)
-        rect(x + 4, y + 5, 6, 2, furLight)
+        rect(x + 1, y + 2, 10, 9, outline)
+        rect(x + 2, y + 3, 8, 7, fur)
+        rect(x + 2, y, 2, 4, outline)
+        rect(x + 8, y, 2, 4, outline)
+        rect(x + 4, y + 5, 5, 2, furLight)
         rect(x + 4, y + 6, 2, 2, eye)
-        rect(x + 9, y + 6, 2, 2, eye)
-        rect(x + 6, y + 9, 3, 2, signal)
-        rect(x + 3, y + 12, 2, 2, outline)
-        rect(x + 10, y + 12, 2, 2, outline)
+        rect(x + 8, y + 6, 2, 2, eye)
+        rect(x + 5, y + 9, 3, 1, signal)
+        rect(x + 3, y + 11, 2, 2, outline)
+        rect(x + 9, y + 11, 2, 2, outline)
     }
 
     private func drawRunBody(x: Int, y: Int, phase: Int) {
-        let shoulderLift = [0, -1, -1, 0, 0, 1, 0, -1][phase]
-        let hipLift = [0, 0, 1, 1, 0, -1, -1, 0][phase]
+        let shoulder = [0, -1, -1, 0, 1, 0, -1, -1][phase]
+        let waist = [1, 0, -1, -1, 0, 1, 0, -1][phase]
+        let hip = [0, 1, 0, -1, -1, 0, 1, 0][phase]
 
-        rect(x - 1, y + 6 + shoulderLift, 5, 5, outline)
-        rect(x, y + 7 + shoulderLift, 4, 3, fur)
-        rect(x + 4, y + 2 + shoulderLift, 18, 3, outline)
-        rect(x + 1, y + 4 + shoulderLift, 25, 8, outline)
-        rect(x + 4, y + 11 + hipLift, 19, 2, outline)
-        rect(x + 3, y + 5 + shoulderLift, 21, 6, fur)
-        rect(x + 7, y + 6 + shoulderLift, 10, 3, furLight)
-        rect(x + 20, y + 6 + hipLift, 4, 4, furDark)
-        rect(x + 6, y + 4 + shoulderLift, 4, 1, mid)
+        rect(x + 1, y + 4 + shoulder, 6, 2, outline)
+        rect(x + 7, y + 3 + waist, 9, 2, outline)
+        rect(x + 16, y + 4 + hip, 6, 2, outline)
+        rect(x + 1, y + 6 + shoulder, 21, 5, outline)
+        rect(x + 3, y + 6 + shoulder, 17, 4, fur)
+        rect(x + 6, y + 6 + waist, 8, 2, furLight)
+        rect(x + 18, y + 7 + hip, 3, 3, furDark)
+        rect(x + 3, y + 10 + waist, 15, 1, outline)
+        rect(x + 1, y + 8 + shoulder, 2, 2, fur)
+        rect(x + 6, y + 5 + waist, 3, 1, mid)
     }
 
     private func drawRunLegs(x: Int, y: Int, phase: Int) {
-        let frontStride = [3, 2, 0, -2, -3, -1, 1, 3][phase]
-        let rearStride = [-3, -1, 1, 3, 2, 0, -2, -3][phase]
-        let shadowFront = [-2, -1, 1, 2, 3, 1, -1, -2][phase]
+        let frontStride = [4, 3, 1, -2, -4, -2, 1, 3][phase]
+        let rearStride = [-4, -2, 1, 4, 3, 0, -2, -4][phase]
+        let shadowFront = [-2, -1, 1, 3, 2, 0, -1, -2][phase]
         let shadowRear = [2, 1, -1, -3, -2, 0, 1, 2][phase]
 
-        drawStrideLeg(hipX: x + 9, hipY: y, footX: x + 9 + shadowFront, footY: y + 5, front: false, primary: false)
-        drawStrideLeg(hipX: x + 22, hipY: y, footX: x + 22 + shadowRear, footY: y + 5, front: false, primary: false)
-        drawStrideLeg(hipX: x + 6, hipY: y, footX: x + 6 + frontStride, footY: y + 6 + (phase % 2), front: true, primary: true)
-        drawStrideLeg(hipX: x + 20, hipY: y, footX: x + 20 + rearStride, footY: y + 6 + ((phase + 1) % 2), front: false, primary: true)
+        drawStrideLeg(hipX: x + 7, hipY: y, footX: x + 7 + shadowFront, footY: y + 5, front: false, primary: false)
+        drawStrideLeg(hipX: x + 19, hipY: y, footX: x + 19 + shadowRear, footY: y + 5, front: false, primary: false)
+        drawStrideLeg(hipX: x + 5, hipY: y, footX: x + 5 + frontStride, footY: y + 6 + (phase % 2), front: true, primary: true)
+        drawStrideLeg(hipX: x + 18, hipY: y, footX: x + 18 + rearStride, footY: y + 6 + ((phase + 1) % 2), front: false, primary: true)
     }
 
     private func drawStrideLeg(hipX: Int, hipY: Int, footX: Int, footY: Int, front: Bool, primary: Bool) {
@@ -277,22 +279,22 @@ final class AnimatedCatSprite {
         let kneeY = hipY + 3
         let legOutline = primary ? outline : outline.withAlphaComponent(0.82)
         let legFill = front ? fur : (primary ? furDark : mid)
-        rect(min(hipX, kneeX), hipY, abs(kneeX - hipX) + 2, 2, legOutline)
-        rect(min(kneeX, footX), kneeY, abs(footX - kneeX) + 2, 2, legOutline)
+        rect(min(hipX, kneeX), hipY, abs(kneeX - hipX) + 1, primary ? 2 : 1, legOutline)
+        rect(min(kneeX, footX), kneeY, abs(footX - kneeX) + 1, primary ? 2 : 1, legOutline)
         rect(min(hipX, kneeX), hipY + 1, max(1, abs(kneeX - hipX) + 1), 1, legFill)
         rect(min(kneeX, footX), kneeY + 1, max(1, abs(footX - kneeX) + 1), 1, legFill)
-        rect(footX - 1, footY, primary ? 5 : 4, 2, legOutline)
-        rect(footX, footY - 1, primary ? 3 : 2, 2, legFill)
+        rect(footX - 1, footY, primary ? 4 : 3, 1, legOutline)
+        rect(footX, footY - 1, primary ? 2 : 1, 1, legFill)
     }
 
     private func drawRunTail(baseX: Int, baseY: Int, phase: Int) {
-        let lift = [1, 0, -2, -3, -2, 0, 1, 2][phase % 8]
-        rect(baseX, baseY + 3 + lift, 5, 2, outline)
-        rect(baseX + 4, baseY + 1 + lift, 4, 2, outline)
-        rect(baseX + 7, baseY - 1 + lift, 2, 5, outline)
-        rect(baseX + 1, baseY + 4 + lift, 4, 1, furDark)
-        rect(baseX + 5, baseY + 2 + lift, 3, 1, fur)
-        rect(baseX + 8, baseY + lift, 1, 3, furLight)
+        let lift = [2, 1, -1, -3, -2, 0, 2, 3][phase % 8]
+        rect(baseX, baseY + 4 + lift, 5, 1, outline)
+        rect(baseX + 4, baseY + 2 + lift, 4, 1, outline)
+        rect(baseX + 7, baseY + lift, 2, 4, outline)
+        rect(baseX + 1, baseY + 5 + lift, 3, 1, furDark)
+        rect(baseX + 5, baseY + 3 + lift, 3, 1, fur)
+        rect(baseX + 8, baseY + 1 + lift, 1, 2, furLight)
     }
 
     private func drawSpeedLines(phase: Int) {
@@ -302,56 +304,56 @@ final class AnimatedCatSprite {
     }
 
     private func drawCurledBody(x: Int, y: Int, breathe: Int) {
-        rect(x + 8, y, 14, 3, outline)
-        rect(x + 4, y + 2, 24, 5, outline)
-        rect(x + 1, y + 6, 30, 8 + breathe, outline)
-        rect(x + 3, y + 14 + breathe, 26, 5, outline)
-        rect(x + 8, y + 19 + breathe, 16, 2, outline)
+        rect(x + 9, y + 2, 12, 2, outline)
+        rect(x + 5, y + 4, 20, 4, outline)
+        rect(x + 3, y + 8, 24, 7 + breathe, outline)
+        rect(x + 5, y + 15 + breathe, 19, 4, outline)
+        rect(x + 10, y + 19 + breathe, 10, 2, outline)
 
-        rect(x + 6, y + 4, 20, 12 + breathe, fur)
-        rect(x + 10, y + 5, 13, 8 + breathe, furLight)
-        rect(x + 18, y + 11, 6, 3, mid)
-        rect(x + 9, y + 17 + breathe, 13, 2, furDark)
+        rect(x + 6, y + 6, 18, 10 + breathe, fur)
+        rect(x + 10, y + 7, 10, 6 + breathe, furLight)
+        rect(x + 18, y + 11, 4, 2, mid)
+        rect(x + 10, y + 17 + breathe, 10, 1, furDark)
     }
 
     private func drawCurledHead(x: Int, y: Int) {
-        rect(x + 1, y + 2, 11, 9, outline)
-        rect(x + 2, y + 3, 9, 7, fur)
+        rect(x + 1, y + 2, 9, 8, outline)
+        rect(x + 2, y + 3, 7, 6, fur)
         rect(x + 2, y, 2, 4, outline)
-        rect(x + 9, y, 2, 4, outline)
-        rect(x + 4, y + 5, 5, 2, furLight)
-        rect(x + 4, y + 7, 2, 1, outline)
-        rect(x + 8, y + 7, 2, 1, outline)
+        rect(x + 8, y, 2, 4, outline)
+        rect(x + 4, y + 5, 4, 2, furLight)
+        rect(x + 4, y + 7, 1, 1, outline)
+        rect(x + 7, y + 7, 1, 1, outline)
     }
 
     private func drawCurledTail(x: Int, y: Int) {
-        rect(x, y - 1, 9, 3, outline)
-        rect(x + 7, y - 5, 3, 8, outline)
-        rect(x + 2, y + 2, 8, 3, outline)
-        rect(x + 1, y, 7, 1, furDark)
-        rect(x + 8, y - 4, 1, 6, fur)
-        rect(x + 3, y + 3, 6, 1, furDark)
+        rect(x, y, 8, 2, outline)
+        rect(x + 6, y - 4, 2, 6, outline)
+        rect(x + 2, y + 2, 7, 2, outline)
+        rect(x + 1, y + 1, 6, 1, furDark)
+        rect(x + 7, y - 3, 1, 4, fur)
+        rect(x + 3, y + 3, 5, 1, furDark)
     }
 
     private func drawSittingBody(x: Int, y: Int) {
-        rect(x + 2, y, 14, 13, outline)
-        rect(x, y + 6, 18, 8, outline)
-        rect(x + 3, y + 1, 12, 12, fur)
-        rect(x + 5, y + 3, 8, 8, furLight)
-        rect(x + 1, y + 14, 7, 3, outline)
-        rect(x + 12, y + 14, 7, 3, outline)
-        rect(x + 2, y + 13, 4, 2, furDark)
-        rect(x + 13, y + 13, 4, 2, furDark)
-        rect(x - 2, y + 7, 4, 2, outline)
-        rect(x + 16, y + 7, 4, 2, outline)
+        rect(x + 3, y, 10, 12, outline)
+        rect(x + 1, y + 6, 14, 7, outline)
+        rect(x + 4, y + 1, 8, 11, fur)
+        rect(x + 6, y + 3, 5, 7, furLight)
+        rect(x + 1, y + 13, 5, 2, outline)
+        rect(x + 10, y + 13, 5, 2, outline)
+        rect(x + 2, y + 12, 3, 1, furDark)
+        rect(x + 11, y + 12, 3, 1, furDark)
+        rect(x - 1, y + 7, 3, 1, outline)
+        rect(x + 14, y + 7, 3, 1, outline)
     }
 
     private func drawSittingTail(x: Int, y: Int, phase: Int) {
         let curl = [0, 1, 0, -1][phase]
-        rect(x, y + curl, 8, 3, outline)
-        rect(x + 6, y - 4 + curl, 3, 7, outline)
-        rect(x + 1, y + 1 + curl, 6, 1, furDark)
-        rect(x + 7, y - 3 + curl, 1, 5, fur)
+        rect(x, y + curl, 7, 2, outline)
+        rect(x + 5, y - 4 + curl, 2, 6, outline)
+        rect(x + 1, y + 1 + curl, 5, 1, furDark)
+        rect(x + 6, y - 3 + curl, 1, 4, fur)
     }
 
     private func drawReviewMark(x: Int, y: Int, phase: Int) {
