@@ -37,6 +37,7 @@ The indicator next to the cat is the estimated remaining 5-hour quota window fro
 
 - Menu bar: pixel-art vertical battery next to the cat, without extra status text.
 - Click menu: a compact macOS-style glass detail panel with status signals and quota bars.
+- Refresh: status is polled frequently, while quota data gets a stronger local tail rescan every few seconds and whenever the detail panel opens.
 - Auto close: the detail panel closes shortly after the pointer leaves the menu and cat icon.
 
 This is local telemetry from `~/.codex/sessions`, not an official billing or quota API. Exact token totals can differ from Codex's own UI because Codex may display thread-specific live context, account-level limits, cached-token accounting, or server-side usage state that is not fully exposed in local session logs.

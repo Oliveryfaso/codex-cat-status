@@ -59,6 +59,7 @@ struct TokenUsageSnapshot {
     let primaryLimit: TokenBucketSnapshot?
     let secondaryLimit: TokenBucketSnapshot?
     let lastUpdated: Date?
+    let lastQuotaRefreshed: Date?
 
     static let empty = TokenUsageSnapshot(
         contextWindow: nil,
@@ -70,7 +71,8 @@ struct TokenUsageSnapshot {
         observedWeekTokens: 0,
         primaryLimit: nil,
         secondaryLimit: nil,
-        lastUpdated: nil
+        lastUpdated: nil,
+        lastQuotaRefreshed: nil
     )
 
     var remainingContextTokens: Int? {
@@ -90,6 +92,62 @@ struct TokenUsageSnapshot {
     var menuBarText: String {
         guard let menuBarQuotaPercent else { return "[------] --" }
         return formatBattery(menuBarQuotaPercent, width: 6, includePercent: true)
+    }
+
+    func removingExpiredQuota(now: Date) -> TokenUsageSnapshot {
+        TokenUsageSnapshot(
+            contextWindow: contextWindow,
+            currentInputTokens: currentInputTokens,
+            currentOutputTokens: currentOutputTokens,
+            currentTotalTokens: currentTotalTokens,
+            totalSessionTokens: totalSessionTokens,
+            observedTodayTokens: observedTodayTokens,
+            observedWeekTokens: observedWeekTokens,
+            primaryLimit: primaryLimit?.isCurrent(now: now) == true ? primaryLimit : nil,
+            secondaryLimit: secondaryLimit?.isCurrent(now: now) == true ? secondaryLimit : nil,
+            lastUpdated: lastUpdated,
+            lastQuotaRefreshed: lastQuotaRefreshed
+        )
+    }
+
+    func mergingLiveQuota(from live: TokenUsageSnapshot) -> TokenUsageSnapshot {
+        guard live.lastUpdated != nil || live.primaryLimit != nil || live.secondaryLimit != nil else {
+            return self
+        }
+
+        return TokenUsageSnapshot(
+            contextWindow: live.contextWindow ?? contextWindow,
+            currentInputTokens: live.currentInputTokens ?? currentInputTokens,
+            currentOutputTokens: live.currentOutputTokens ?? currentOutputTokens,
+            currentTotalTokens: live.currentTotalTokens ?? currentTotalTokens,
+            totalSessionTokens: live.totalSessionTokens ?? totalSessionTokens,
+            observedTodayTokens: max(observedTodayTokens, live.observedTodayTokens),
+            observedWeekTokens: max(observedWeekTokens, live.observedWeekTokens),
+            primaryLimit: live.primaryLimit ?? primaryLimit,
+            secondaryLimit: live.secondaryLimit ?? secondaryLimit,
+            lastUpdated: newer(lastUpdated, live.lastUpdated),
+            lastQuotaRefreshed: live.lastQuotaRefreshed ?? lastQuotaRefreshed
+        )
+    }
+}
+
+extension TokenBucketSnapshot {
+    func isCurrent(now: Date) -> Bool {
+        guard let resetsAt else { return true }
+        return resetsAt > now.addingTimeInterval(-60)
+    }
+}
+
+func newer(_ lhs: Date?, _ rhs: Date?) -> Date? {
+    switch (lhs, rhs) {
+    case let (left?, right?):
+        return max(left, right)
+    case let (left?, nil):
+        return left
+    case let (nil, right?):
+        return right
+    case (nil, nil):
+        return nil
     }
 }
 
@@ -477,10 +535,21 @@ final class CodexStatusProbe {
     private let maxConversationTurnWindow: TimeInterval = 12 * 60 * 60
     private let maxSessionFiles = 30
     private let sessionTailBytes: UInt64 = 8_000_000
+    private let quotaRefreshMaxSessionFiles = 12
+    private let quotaRefreshTailBytes: UInt64 = 2_000_000
     private var sessionStates: [String: SessionActivityState] = [:]
+    private var cachedTokenUsage: TokenUsageSnapshot = .empty
 
-    func snapshot() -> StatusSnapshot {
+    func snapshot(refreshQuota: Bool = false) -> StatusSnapshot {
         let sessionSignals = scanRecentSessions()
+        var tokenUsage = cachedTokenUsage
+            .removingExpiredQuota(now: Date())
+            .mergingLiveQuota(from: sessionSignals.tokenUsage)
+        if refreshQuota {
+            tokenUsage = tokenUsage.mergingLiveQuota(from: refreshTokenUsageFromSessionTails())
+        }
+        cachedTokenUsage = tokenUsage
+
         let runningJobs = countRunningJobs()
         let reviewSignals = countReviewSignals() + sessionSignals.pendingCalls.review
 
@@ -499,8 +568,35 @@ final class CodexStatusProbe {
             pendingCalls: sessionSignals.pendingCalls.running,
             runningJobs: runningJobs,
             reviewSignals: reviewSignals,
-            tokenUsage: sessionSignals.tokenUsage,
+            tokenUsage: tokenUsage,
             lastChecked: Date()
+        )
+    }
+
+    private func refreshTokenUsageFromSessionTails() -> TokenUsageSnapshot {
+        let states = recentSessionURLs(limit: quotaRefreshMaxSessionFiles).compactMap { session -> SessionActivityState? in
+            guard let text = readTail(url: session, maxBytes: quotaRefreshTailBytes), !text.isEmpty else {
+                return nil
+            }
+
+            var state = SessionActivityState()
+            applySessionLines(text, to: &state)
+            return state
+        }
+
+        let refreshed = aggregateTokenUsage(from: states)
+        return TokenUsageSnapshot(
+            contextWindow: refreshed.contextWindow,
+            currentInputTokens: refreshed.currentInputTokens,
+            currentOutputTokens: refreshed.currentOutputTokens,
+            currentTotalTokens: refreshed.currentTotalTokens,
+            totalSessionTokens: refreshed.totalSessionTokens,
+            observedTodayTokens: refreshed.observedTodayTokens,
+            observedWeekTokens: refreshed.observedWeekTokens,
+            primaryLimit: refreshed.primaryLimit,
+            secondaryLimit: refreshed.secondaryLimit,
+            lastUpdated: refreshed.lastUpdated,
+            lastQuotaRefreshed: Date()
         )
     }
 
@@ -613,10 +709,9 @@ final class CodexStatusProbe {
     }
 
     private func applyTokenCount(payload: [String: Any], timestamp: Date, to state: inout SessionActivityState) {
-        guard let info = payload["info"] as? [String: Any] else { return }
-
-        let lastUsage = info["last_token_usage"] as? [String: Any]
-        let totalUsage = info["total_token_usage"] as? [String: Any]
+        let info = payload["info"] as? [String: Any]
+        let lastUsage = info?["last_token_usage"] as? [String: Any]
+        let totalUsage = info?["total_token_usage"] as? [String: Any]
         let rateLimits = payload["rate_limits"] as? [String: Any]
 
         let lastTotal = intValue(lastUsage?["total_tokens"]) ?? 0
@@ -629,7 +724,7 @@ final class CodexStatusProbe {
             }
         }
 
-        let contextWindow = intValue(info["model_context_window"])
+        let contextWindow = intValue(info?["model_context_window"])
         let snapshot = TokenUsageSnapshot(
             contextWindow: contextWindow,
             currentInputTokens: intValue(lastUsage?["input_tokens"]),
@@ -640,7 +735,8 @@ final class CodexStatusProbe {
             observedWeekTokens: 0,
             primaryLimit: parseTokenBucket(rateLimits?["primary"]),
             secondaryLimit: parseTokenBucket(rateLimits?["secondary"]),
-            lastUpdated: timestamp
+            lastUpdated: timestamp,
+            lastQuotaRefreshed: nil
         )
 
         if state.latestTokenUsage.lastUpdated == nil || timestamp >= state.latestTokenUsage.lastUpdated! {
@@ -698,7 +794,8 @@ final class CodexStatusProbe {
             observedWeekTokens: week,
             primaryLimit: aggregateQuotaBucket(primaryBuckets, fallback: latest.primaryLimit, now: now),
             secondaryLimit: aggregateQuotaBucket(secondaryBuckets, fallback: latest.secondaryLimit, now: now),
-            lastUpdated: latest.lastUpdated
+            lastUpdated: latest.lastUpdated,
+            lastQuotaRefreshed: latest.lastQuotaRefreshed
         )
     }
 
@@ -1340,6 +1437,7 @@ private struct PanelPalette {
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let animationInterval: TimeInterval = 0.16
     private let statusPollInterval: TimeInterval = 0.5
+    private let quotaRefreshInterval: TimeInterval = 3.0
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let probe = CodexStatusProbe()
     private let probeQueue = DispatchQueue(label: "CodexCatStatus.probe", qos: .utility)
@@ -1349,7 +1447,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var pollCount = 0
     private var lastSnapshot: StatusSnapshot?
     private var lastStatusPoll = Date.distantPast
+    private var lastQuotaRefresh = Date.distantPast
     private var isProbeRunning = false
+    private var pendingQuotaRefresh = false
     private var menuCloseTimer: Timer?
     private var menuMouseOutsideSince: Date?
     private let menuAutoCloseDelay: TimeInterval = 1.5
@@ -1391,7 +1491,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             detailsPanel.snapshot = lastSnapshot
         }
         startMenuAutoCloseTimer(for: menu)
-        requestStatusPoll(force: true)
+        requestStatusPoll(force: true, refreshQuota: true)
     }
 
     func menuDidClose(_ menu: NSMenu) {
@@ -1400,8 +1500,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func updateStatus() {
         let now = Date()
-        if lastSnapshot == nil || now.timeIntervalSince(lastStatusPoll) >= statusPollInterval {
-            requestStatusPoll(force: lastSnapshot == nil)
+        let shouldRefreshQuota = now.timeIntervalSince(lastQuotaRefresh) >= quotaRefreshInterval
+        if lastSnapshot == nil || shouldRefreshQuota || now.timeIntervalSince(lastStatusPoll) >= statusPollInterval {
+            requestStatusPoll(force: lastSnapshot == nil, refreshQuota: shouldRefreshQuota)
         }
 
         guard let snapshot = lastSnapshot else { return }
@@ -1409,21 +1510,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         render(snapshot: snapshot, didPoll: false)
     }
 
-    private func requestStatusPoll(force: Bool = false) {
+    private func requestStatusPoll(force: Bool = false, refreshQuota: Bool = false) {
         let now = Date()
-        guard !isProbeRunning else { return }
-        guard force || now.timeIntervalSince(lastStatusPoll) >= statusPollInterval else { return }
+        let shouldRefreshQuota = refreshQuota || now.timeIntervalSince(lastQuotaRefresh) >= quotaRefreshInterval
+
+        if isProbeRunning {
+            pendingQuotaRefresh = pendingQuotaRefresh || shouldRefreshQuota
+            return
+        }
+
+        guard force || shouldRefreshQuota || now.timeIntervalSince(lastStatusPoll) >= statusPollInterval else { return }
 
         isProbeRunning = true
         lastStatusPoll = now
+        if shouldRefreshQuota {
+            lastQuotaRefresh = now
+        }
         probeQueue.async { [weak self] in
             guard let self else { return }
-            let snapshot = self.probe.snapshot()
+            let snapshot = self.probe.snapshot(refreshQuota: shouldRefreshQuota)
             DispatchQueue.main.async {
+                let rerunQuotaRefresh = self.pendingQuotaRefresh
+                self.pendingQuotaRefresh = false
                 self.lastSnapshot = snapshot
                 self.isProbeRunning = false
                 self.pollCount += 1
                 self.render(snapshot: snapshot, didPoll: true)
+                if rerunQuotaRefresh {
+                    self.requestStatusPoll(force: true, refreshQuota: true)
+                }
             }
         }
     }
@@ -1515,7 +1630,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 }
 
 if CommandLine.arguments.contains("--once") {
-    let snapshot = CodexStatusProbe().snapshot()
+    let snapshot = CodexStatusProbe().snapshot(refreshQuota: true)
     print("state=\(snapshot.state.rawValue) conversation=\(snapshot.activeConversation) pending=\(snapshot.pendingCalls) jobs=\(snapshot.runningJobs) review=\(snapshot.reviewSignals) token_left=\(snapshot.tokenUsage.menuBarText) today=\(formatCompact(snapshot.tokenUsage.observedTodayTokens)) week=\(formatCompact(snapshot.tokenUsage.observedWeekTokens))")
 } else {
     let app = NSApplication.shared
